@@ -1,9 +1,82 @@
 import React, { useState } from 'react';
-import { MousePointer2, Circle, Minus, FlipVertical2, Ruler, Triangle, CheckSquare, AlignHorizontalSpaceAround, Dot, Square, Hash, CircleDotDashed, Target, MoveRight, Equal, Percent, MinusSquare, Type, CircleDashed, Waves, LayoutTemplate, ChevronDown, ChevronRight, Crosshair } from 'lucide-react';
+import { 
+  MousePointer2, 
+  Circle, 
+  Minus, 
+  Ruler, 
+  Triangle, 
+  CheckSquare, 
+  Square, 
+  MoveDiagonal, 
+  Type, 
+  ChevronDown, 
+  ChevronRight, 
+  Dot,
+  MinusSquare,
+  LayoutTemplate,
+  FlipVertical2,
+  AlignHorizontalSpaceAround,
+  Crosshair,
+  CircleDotDashed,
+  Target,
+  Hash,
+  Equal,
+  Percent
+} from 'lucide-react';
 import { useToolStore } from '../store/toolStore';
 import { useViewStore } from '../store/viewStore';
 import type { ToolType } from '../store/toolStore';
 import { clsx } from 'clsx';
+
+// Custom Icons for Math Shapes
+const EllipseIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <ellipse cx="12" cy="12" rx="10" ry="6" />
+  </svg>
+);
+
+const ParabolaIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M4 4 Q12 20 20 4" />
+  </svg>
+);
+
+const HyperbolaIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M5 19 C9 14 9 10 5 5" />
+    <path d="M19 19 C15 14 15 10 19 5" />
+  </svg>
+);
 
 type ToolItem = { id: ToolType; icon: React.ElementType; label: string; shortcut?: string };
 type ToolGroup = { name: string; items: ToolItem[]; defaultOpen?: boolean };
@@ -28,10 +101,11 @@ export const Toolbar: React.FC = () => {
       items: [
         { id: 'point', icon: Dot, label: '点 (P)', shortcut: 'P' },
         { id: 'line', icon: Minus, label: '线段 (L)', shortcut: 'L' },
-        { id: 'vector', icon: MoveRight, label: '向量' },
+        { id: 'vector', icon: MoveDiagonal, label: '向量', shortcut: 'V' },
         { id: 'circle', icon: Circle, label: '圆 (C)', shortcut: 'C' },
-        { id: 'ellipse', icon: CircleDashed, label: '椭圆' },
-        { id: 'parabola', icon: Waves, label: '抛物线' },
+        { id: 'ellipse', icon: EllipseIcon, label: '椭圆', shortcut: 'E' },
+        { id: 'parabola', icon: ParabolaIcon, label: '抛物线', shortcut: 'P' },
+        { id: 'hyperbola', icon: HyperbolaIcon, label: '双曲线', shortcut: 'H' },
         { id: 'rectangle', icon: Square, label: '矩形 (R)', shortcut: 'R' },
         { id: 'auxiliary', icon: MinusSquare, label: '辅助线' },
         { id: 'template', icon: LayoutTemplate, label: '模板库' },

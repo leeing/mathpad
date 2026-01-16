@@ -1,4 +1,4 @@
-export type GeoType = 'point' | 'line' | 'circle' | 'label' | 'angle' | 'function_graph' | 'segment_mark' | 'arc' | 'text' | 'ellipse' | 'parabola';
+export type GeoType = 'point' | 'line' | 'circle' | 'label' | 'angle' | 'function_graph' | 'segment_mark' | 'arc' | 'text' | 'ellipse' | 'parabola' | 'hyperbola';
 
 export interface GeoStyle {
   stroke: string;
@@ -22,12 +22,15 @@ export type GeoDefinition =
   | { type: 'angle_3points'; p1: string; vertex: string; p2: string }
   | { type: 'function_expression'; expression: string }
   | { type: 'segment_mark'; lineId: string; markType: SegmentMarkType }
-  | { type: 'ellipse_by_foci'; f1: string; f2: string; pointOnEllipse: string }
+  | { type: 'ellipse_by_foci'; f1: string; f2: string; pointOn: string }
+  | { type: 'ellipse_by_center_axes'; center: string; majorEnd: string; minorEnd: string }
   | { type: 'ellipse_by_center'; center: string; a: number; b: number }
-  | { type: 'ellipse_by_equation'; a: number; b: number }
-  | { type: 'parabola_by_focus_directrix'; focus: string; directrixY: number }
+  | { type: 'ellipse_by_equation'; a: number; b: number; centerX: number; centerY: number; rotation: number }
+  | { type: 'parabola_by_focus_directrix'; focus: string; directrix: string }
   | { type: 'parabola_by_vertex_focus'; vertex: string; focus: string }
-  | { type: 'parabola_by_equation'; p: number; direction: 'up' | 'down' | 'left' | 'right' };
+  | { type: 'parabola_by_equation'; p: number; direction: 'up' | 'down' | 'left' | 'right' }
+  | { type: 'parabola_general'; a: number; b: number; c: number; axis: 'x' | 'y' }
+  | { type: 'hyperbola_by_equation'; a: number; b: number; centerX: number; centerY: number; orientation: 'horizontal' | 'vertical' };
 
 export interface BaseElement {
   id: string;
@@ -120,11 +123,28 @@ export interface EllipseElement extends BaseElement {
 
 export interface ParabolaElement extends BaseElement {
   type: 'parabola';
-  vertexX: number;     // Vertex X coordinate
-  vertexY: number;     // Vertex Y coordinate
-  p: number;           // Focal parameter (distance from vertex to focus)
-  direction: 'up' | 'down' | 'left' | 'right';
+  // Optional standard form properties (might not apply to general/geometric)
+  vertexX?: number;     
+  vertexY?: number;     
+  p?: number;           
+  direction?: 'up' | 'down' | 'left' | 'right';
+  // General form coefficients: y = ax^2 + bx + c (if axis='y') or x = ay^2 + by + c (if axis='x')
+  a?: number;
+  b?: number;
+  c?: number;
+  axis?: 'x' | 'y'; // The axis of symmetry is parallel to this axis? No, usually y=... means symmetry axis is parallel to Y. 
+                    // Let's define: axis='y' means y = ax^2... (vertical symmetry axis), axis='x' means x = ay^2...
   definition: GeoDefinition;
 }
 
-export type GeoElement = PointElement | LineElement | CircleElement | LabelElement | AngleElement | FunctionGraphElement | SegmentMarkElement | ArcElement | TextElement | EllipseElement | ParabolaElement;
+export interface HyperbolaElement extends BaseElement {
+  type: 'hyperbola';
+  centerX: number;
+  centerY: number;
+  a: number;
+  b: number;
+  orientation: 'horizontal' | 'vertical';
+  definition: GeoDefinition;
+}
+
+export type GeoElement = PointElement | LineElement | CircleElement | LabelElement | AngleElement | FunctionGraphElement | SegmentMarkElement | ArcElement | TextElement | EllipseElement | ParabolaElement | HyperbolaElement;

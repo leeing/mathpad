@@ -27,10 +27,11 @@ const STROKE_WIDTHS = [
 ];
 
 export const PropertyPanel: React.FC = () => {
-    const activeTool = useToolStore((state) => state.activeTool);
-    const darkTheme = useViewStore((state) => state.darkTheme);
-
-    const selectedId = useToolStore((state) => state.selectedId);
+  const activeTool = useToolStore((state) => state.activeTool);
+  const darkTheme = useViewStore((state) => state.darkTheme);
+  const selectedElementY = useViewStore((state) => state.selectedElementY);
+  
+  const selectedId = useToolStore((state) => state.selectedId);
     const updateElement = useGeoStore((state) => state.updateElement);
     const removeElement = useGeoStore((state) => state.removeElement);
     const getElementById = useGeoStore((state) => state.getElementById);
@@ -51,11 +52,20 @@ export const PropertyPanel: React.FC = () => {
     const currentStroke = element.style.stroke || '#000000';
     const currentStrokeWidth = element.style.strokeWidth || 2;
 
+    const style: React.CSSProperties | undefined =
+        selectedElementY !== null
+            ? { top: Math.max(80, Math.min(window.innerHeight - 520, selectedElementY - 40)) }
+            : undefined;
+
     return (
-        <div className={clsx(
-            "absolute top-20 right-4 p-4 rounded-lg shadow-lg z-10 w-56",
-            darkTheme ? "bg-gray-800 text-gray-100" : "bg-white text-gray-800"
-        )}>
+        <div
+            className={clsx(
+                "absolute right-64 p-4 rounded-lg shadow-lg z-10 w-56",
+                darkTheme ? "bg-gray-800 text-gray-100" : "bg-white text-gray-800",
+                selectedElementY === null && "top-20"
+            )}
+            style={style}
+        >
             <h3 className={clsx(
                 "font-bold mb-3 text-sm border-b pb-2",
                 darkTheme ? "border-gray-700" : "border-gray-200"

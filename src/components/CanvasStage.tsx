@@ -13,8 +13,9 @@ import { getSnapPosition } from '../core/snapping';
 import { getIncenter, getCircumcenter } from '../core/geometry';
 import { PIXELS_PER_UNIT } from '../constants/grid';
 
-export const CanvasStage = forwardRef<Konva.Stage>((_props, ref) => {
-  const { scale, position, setScale, setPosition, setSize: setViewSize, setMousePosition } = useViewStore();
+export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
+  void props;
+  const { scale, position, setScale, setPosition, setSize: setViewSize } = useViewStore();
   const activeTool = useToolStore((state) => state.activeTool);
   const ellipseMode = useToolStore((state) => state.ellipseMode);
   const setSelectedId = useToolStore((state) => state.setSelectedId);
@@ -190,6 +191,117 @@ export const CanvasStage = forwardRef<Konva.Stage>((_props, ref) => {
           edge: edgeId
         });
         resetConstruction();
+      }
+    } else if (activeTool === 'parabola') {
+      const parabolaMode = useToolStore.getState().parabolaMode;
+      if (parabolaMode === 'equation' || parabolaMode === 'general_equation') {
+        return;
+      }
+
+      let targetPointId = snapResult.snappedTo;
+
+      if (!targetPointId) {
+        targetPointId = generateId();
+        addElement({
+          id: targetPointId,
+          type: 'point',
+          name: 'P',
+          x: worldPos.x,
+          y: worldPos.y,
+          visible: true,
+          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          dependencies: [],
+          definition: { type: 'free' }
+        });
+      }
+
+      const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
+
+      if (parabolaMode === 'vertex_focus') {
+        if (constructionStep === 0) {
+          addTempId(targetPointId);
+          setConstructionStep(1);
+        } else if (constructionStep === 1) {
+          const vertexId = tempIds[0];
+          const focusId = targetPointId;
+
+          if (vertexId === focusId) return;
+
+          addElement({
+            id: generateId(),
+            type: 'parabola',
+            name: 'parabola',
+            visible: true,
+            style: { stroke: '#000', strokeWidth: 2 },
+            dependencies: [vertexId, focusId],
+            definition: { type: 'parabola_by_vertex_focus', vertex: vertexId, focus: focusId }
+          } as GeoElement);
+
+          resetConstruction();
+        }
+      } else if (parabolaMode === 'focus_directrix') {
+        if (constructionStep === 0) {
+          addTempId(targetPointId);
+          setConstructionStep(1);
+        } else if (constructionStep === 1) {
+          addTempId(targetPointId);
+          setConstructionStep(2);
+        } else if (constructionStep === 2) {
+          const focusId = tempIds[0];
+          const dirP1Id = tempIds[1];
+          const dirP2Id = targetPointId;
+
+          if (dirP1Id === dirP2Id) return;
+
+          const focus = useGeoStore.getState().getElementById(focusId);
+          const dp1 = useGeoStore.getState().getElementById(dirP1Id);
+          const dp2 = useGeoStore.getState().getElementById(dirP2Id);
+          if (!focus || !dp1 || !dp2 || focus.type !== 'point' || dp1.type !== 'point' || dp2.type !== 'point') {
+            resetConstruction();
+            return;
+          }
+
+          const dx = dp2.x - dp1.x;
+          const dy = dp2.y - dp1.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len < 1) {
+            resetConstruction();
+            return;
+          }
+          const nx = -dy / len;
+          const ny = dx / len;
+          const dist = Math.abs((focus.x - dp1.x) * nx + (focus.y - dp1.y) * ny);
+          if (dist < 1) {
+            resetConstruction();
+            return;
+          }
+
+          const directrixLineId = generateId();
+          addElement({
+            id: directrixLineId,
+            type: 'line',
+            subtype: 'line',
+            name: 'directrix',
+            visible: true,
+            style: { stroke: '#6b7280', strokeWidth: 1.5, dash: [6, 4] },
+            dependencies: [dirP1Id, dirP2Id],
+            definition: { type: 'line_from_points', p1: dirP1Id, p2: dirP2Id },
+            p1: dirP1Id,
+            p2: dirP2Id
+          });
+
+          addElement({
+            id: generateId(),
+            type: 'parabola',
+            name: 'parabola',
+            visible: true,
+            style: { stroke: '#000', strokeWidth: 2 },
+            dependencies: [focusId, directrixLineId],
+            definition: { type: 'parabola_by_focus_directrix', focus: focusId, directrix: directrixLineId }
+          } as GeoElement);
+
+          resetConstruction();
+        }
       }
     } else if (activeTool === 'measure_length') {
       let targetPointId = snapResult.snappedTo;
@@ -594,7 +706,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((_props, ref) => {
             b,
             rotation,
             definition: { type: 'ellipse_by_foci', f1: p1Id, f2: p2Id, pointOn: p3Id }
-          } as any);
+          } as GeoElement);
 
         } else if (ellipseMode === 'center') {
           // Center, major axis endpoint, minor axis endpoint
@@ -640,7 +752,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((_props, ref) => {
             b,
             rotation,
             definition: { type: 'ellipse_by_center_axes', center: p1Id, majorEnd: p2Id, minorEnd: p3Id }
-          } as any);
+          } as GeoElement);
         }
 
         resetConstruction();
@@ -658,17 +770,16 @@ export const CanvasStage = forwardRef<Konva.Stage>((_props, ref) => {
       x: (pointer.x - stage.x()) / scale,
       y: (pointer.y - stage.y()) / scale,
     };
-    setMousePosition(worldPos);
+    useViewStore.getState().setMousePosition(worldPos);
     setLocalMousePos(worldPos);
   };
 
   const handleMouseLeave = () => {
-    setMousePosition(null);
+    useViewStore.getState().setMousePosition(null);
     setLocalMousePos(null);
   };
 
   // Get cursor style based on tool and hover state
-  const hoveredId = useViewStore.getState().hoveredId;
   const getCursorStyle = (): string => {
     // Drawing tools use crosshair
     const drawingTools = ['point', 'line', 'vector', 'circle', 'rectangle', 'arc', 'auxiliary', 'ellipse', 'parabola'];
@@ -687,7 +798,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((_props, ref) => {
     }
     // Select tool: pointer when hovering, default otherwise
     if (activeTool === 'select') {
-      return hoveredId ? 'pointer' : 'default';
+      return 'default';
     }
     return 'default';
   };

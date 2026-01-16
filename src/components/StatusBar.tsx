@@ -25,6 +25,7 @@ const toolLabels: Record<string, string> = {
     verify_triangle: '验证三角形',
     ellipse: '椭圆',
     parabola: '抛物线',
+    hyperbola: '双曲线',
     template: '模板库',
 };
 
@@ -54,6 +55,7 @@ const defaultHints: Record<string, string> = {
     parallel: '选择一条线和一个点',
     ellipse: '在左下角面板选择定义方式',
     parabola: '在左下角面板选择定义方式',
+    hyperbola: '在左下角面板输入参数，点击“+”创建',
     template: '在左下角选择模板快速创建图形',
 };
 

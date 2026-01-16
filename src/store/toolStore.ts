@@ -28,7 +28,7 @@ export type ToolType =
   | 'verify_triangle';
 
 export type EllipseMode = 'foci' | 'center' | 'equation';
-export type ParabolaMode = 'focus_directrix' | 'vertex_focus' | 'equation';
+export type ParabolaMode = 'focus_directrix' | 'vertex_focus' | 'equation' | 'general_equation';
 
 interface ToolState {
   activeTool: ToolType;

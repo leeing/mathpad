@@ -15,6 +15,7 @@ const getElementIcon = (type: string) => {
         case 'circle': return '○';
         case 'ellipse': return '⬭';
         case 'parabola': return '⌒';
+        case 'hyperbola': return ')(';
         case 'vector': return '⟶';
         case 'angle': return '∠';
         case 'label': return 'T';
@@ -57,6 +58,7 @@ export const RightSidebar: React.FC = () => {
         circle: '圆',
         ellipse: '椭圆',
         parabola: '抛物线',
+        hyperbola: '双曲线',
         rectangle: '矩形',
         arc: '弧',
         angle: '角',
@@ -75,37 +77,37 @@ export const RightSidebar: React.FC = () => {
     }, {} as Record<string, typeof elementList>);
 
     // Order of type groups
-    const typeOrder = ['point', 'line', 'circle', 'ellipse', 'parabola', 'rectangle', 'arc', 'angle', 'segment_mark', 'label'];
+    const typeOrder = ['point', 'line', 'circle', 'ellipse', 'parabola', 'hyperbola', 'rectangle', 'arc', 'angle', 'segment_mark', 'label'];
     const sortedTypes = Object.keys(groupedElements).sort((a, b) => {
         const aIndex = typeOrder.indexOf(a);
         const bIndex = typeOrder.indexOf(b);
         return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
     });
 
-    // Auto-expand the group containing the selected element
     useEffect(() => {
-        if (selectedId) {
-            const element = getElementById(selectedId);
-            if (element) {
-                // Expand the group containing this element
-                setCollapsedGroups(prev => {
-                    const next = new Set(prev);
-                    next.delete(element.type);
-                    return next;
-                });
-
-                // Report the Y position after a short delay to allow render
-                setTimeout(() => {
-                    const rowElement = elementRefs.current[selectedId];
-                    if (rowElement) {
-                        const rect = rowElement.getBoundingClientRect();
-                        setSelectedElementY(rect.top);
-                    }
-                }, 50);
-            }
-        } else {
+        if (!selectedId) {
             setSelectedElementY(null);
+            return;
         }
+
+        const element = getElementById(selectedId);
+        if (!element) return;
+
+        const timeoutId = window.setTimeout(() => {
+            setCollapsedGroups(prev => {
+                const next = new Set(prev);
+                next.delete(element.type);
+                return next;
+            });
+
+            const rowElement = elementRefs.current[selectedId];
+            if (rowElement) {
+                const rect = rowElement.getBoundingClientRect();
+                setSelectedElementY(rect.top);
+            }
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, [selectedId, getElementById, setSelectedElementY]);
 
     const toggleGroupCollapse = (type: string) => {
@@ -286,4 +288,3 @@ export const RightSidebar: React.FC = () => {
         </div>
     );
 };
-

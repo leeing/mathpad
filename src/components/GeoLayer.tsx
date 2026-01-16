@@ -11,7 +11,8 @@ import { Arc } from './elements/Arc';
 import { Text } from './elements/Text';
 import { Ellipse } from './elements/Ellipse';
 import { Parabola } from './elements/Parabola';
-import type { PointElement, LineElement, CircleElement, LabelElement, AngleElement, FunctionGraphElement, SegmentMarkElement, ArcElement, TextElement, EllipseElement, ParabolaElement } from '../types/geoElements';
+import { Hyperbola } from './elements/Hyperbola';
+import type { PointElement, LineElement, CircleElement, LabelElement, AngleElement, FunctionGraphElement, SegmentMarkElement, ArcElement, TextElement, EllipseElement, ParabolaElement, HyperbolaElement } from '../types/geoElements';
 
 export const GeoLayer: React.FC = () => {
   const elements = useGeoStore((state) => state.elements);
@@ -27,12 +28,14 @@ export const GeoLayer: React.FC = () => {
   const texts = Object.values(elements).filter(e => e.type === 'text') as TextElement[];
   const ellipses = Object.values(elements).filter(e => e.type === 'ellipse') as EllipseElement[];
   const parabolas = Object.values(elements).filter(e => e.type === 'parabola') as ParabolaElement[];
+  const hyperbolas = Object.values(elements).filter(e => e.type === 'hyperbola') as HyperbolaElement[];
 
   return (
     <Layer>
       {functions.map(el => <FunctionGraph key={el.id} element={el} />)}
       {ellipses.map(el => <Ellipse key={el.id} element={el} />)}
       {parabolas.map(el => <Parabola key={el.id} element={el} />)}
+      {hyperbolas.map(el => <Hyperbola key={el.id} element={el} />)}
       {angles.map(el => <Angle key={el.id} element={el} />)}
       {circles.map(el => <Circle key={el.id} element={el} />)}
       {arcs.map(el => <Arc key={el.id} element={el} />)}

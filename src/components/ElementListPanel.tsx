@@ -15,6 +15,7 @@ const getElementIcon = (type: string) => {
         case 'circle': return '○';
         case 'ellipse': return '⬭';
         case 'parabola': return '⌒';
+        case 'hyperbola': return ')(';
         case 'vector': return '⟶';
         case 'angle': return '∠';
         case 'label': return 'T';
