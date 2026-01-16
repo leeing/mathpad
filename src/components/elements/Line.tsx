@@ -13,13 +13,22 @@ interface LineProps {
 }
 
 export const Line: React.FC<LineProps> = ({ element }) => {
+  // All hooks MUST be called before any early returns
   const { scale, size } = useViewStore();
+  const showHiddenElements = useViewStore((state) => state.showHiddenElements);
+  const hoveredId = useViewStore((state) => state.hoveredId);
+  const setHoveredId = useViewStore((state) => state.setHoveredId);
   const getElementById = useGeoStore((state) => state.getElementById);
   const updateElement = useGeoStore((state) => state.updateElement);
   const activeTool = useToolStore((state) => state.activeTool);
-
-  // Track initial positions for drag translation
+  const selection = useGeoStore((state) => state.selection);
   const dragStartRef = useRef<{ p1x: number; p1y: number; p2x: number; p2y: number } | null>(null);
+
+  // Handle visibility - if hidden and not in preview mode, don't render
+  const isHidden = element.visible === false;
+  if (isHidden && !showHiddenElements) {
+    return null;
+  }
 
   const p1 = getElementById(element.p1) as PointElement;
   const p2 = getElementById(element.p2) as PointElement;
@@ -252,12 +261,16 @@ export const Line: React.FC<LineProps> = ({ element }) => {
   };
 
   const darkTheme = useViewStore.getState().darkTheme;
-  const selection = useGeoStore((state) => state.selection);
   const isSelected = selection.includes(element.id);
+  const isHovered = hoveredId === element.id;
 
-  // Determine stroke color: selected -> blue, otherwise use element style (inverted for dark mode)
+  const handleMouseEnter = () => setHoveredId(element.id);
+  const handleMouseLeave = () => setHoveredId(null);
+
+  // Determine stroke color: selected -> blue, hovered -> orange, otherwise use element style
   const getStrokeColor = () => {
     if (isSelected) return '#3b82f6'; // Blue when selected
+    if (isHovered) return '#f59e0b'; // Orange when hovered
     if (element.style.stroke && element.style.stroke !== '#000') {
       return element.style.stroke; // Use custom color if set
     }
@@ -284,9 +297,12 @@ export const Line: React.FC<LineProps> = ({ element }) => {
         onDragEnd={handleDragEnd}
         onClick={handleClick}
         onTap={handleClick}
-        shadowColor={isSelected ? '#3b82f6' : undefined}
-        shadowBlur={isSelected ? 8 : 0}
-        shadowEnabled={isSelected}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        shadowColor={isSelected ? '#3b82f6' : (isHovered ? '#f59e0b' : undefined)}
+        shadowBlur={isSelected ? 8 : (isHovered ? 6 : 0)}
+        shadowEnabled={isSelected || isHovered}
+        opacity={isHidden ? 0.4 : 1}
       />
     );
   }
@@ -305,9 +321,12 @@ export const Line: React.FC<LineProps> = ({ element }) => {
       onDragEnd={handleDragEnd}
       onClick={handleClick}
       onTap={handleClick}
-      shadowColor={isSelected ? '#3b82f6' : undefined}
-      shadowBlur={isSelected ? 8 : 0}
-      shadowEnabled={isSelected}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      shadowColor={isSelected ? '#3b82f6' : (isHovered ? '#f59e0b' : undefined)}
+      shadowBlur={isSelected ? 8 : (isHovered ? 6 : 0)}
+      shadowEnabled={isSelected || isHovered}
+      opacity={isHidden ? 0.4 : 1}
     />
   );
 };

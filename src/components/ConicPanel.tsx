@@ -6,23 +6,25 @@ import { generateId } from '../utils/id';
 import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { clsx } from 'clsx';
 
-type EllipseMode = 'foci' | 'center' | 'equation';
-type ParabolaMode = 'focus_directrix' | 'vertex_focus' | 'equation';
-
 export const ConicPanel: React.FC = () => {
     const activeTool = useToolStore((state) => state.activeTool);
+    const ellipseMode = useToolStore((state) => state.ellipseMode);
+    const setEllipseMode = useToolStore((state) => state.setEllipseMode);
+    const parabolaMode = useToolStore((state) => state.parabolaMode);
+    const setParabolaMode = useToolStore((state) => state.setParabolaMode);
     const addElement = useGeoStore((state) => state.addElement);
     const darkTheme = useViewStore((state) => state.darkTheme);
 
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     // Ellipse state
-    const [ellipseMode, setEllipseMode] = useState<EllipseMode>('equation');
     const [ellipseA, setEllipseA] = useState('3');
     const [ellipseB, setEllipseB] = useState('2');
+    const [ellipseCenterX, setEllipseCenterX] = useState('0');
+    const [ellipseCenterY, setEllipseCenterY] = useState('0');
+    const [ellipseRotation, setEllipseRotation] = useState('0');  // Rotation in degrees
 
     // Parabola state
-    const [parabolaMode, setParabolaMode] = useState<ParabolaMode>('equation');
     const [parabolaP, setParabolaP] = useState('1');
     const [parabolaDirection, setParabolaDirection] = useState<'up' | 'down' | 'left' | 'right'>('up');
 
@@ -36,20 +38,24 @@ export const ConicPanel: React.FC = () => {
 
         const a = parseFloat(ellipseA) || 3;
         const b = parseFloat(ellipseB) || 2;
+        const centerX = parseFloat(ellipseCenterX) || 0;
+        const centerY = parseFloat(ellipseCenterY) || 0;
+        const rotationDeg = parseFloat(ellipseRotation) || 0;
+        const rotation = (rotationDeg * Math.PI) / 180;  // Convert to radians
 
         addElement({
             id: generateId(),
             type: 'ellipse',
-            name: `椭圆 (a=${a}, b=${b})`,
+            name: `椭圆`,
             visible: true,
             style: { stroke: '#000', strokeWidth: 2 },
             dependencies: [],
-            centerX: 0, // At origin
-            centerY: 0,
-            a: a,
-            b: b,
-            rotation: 0,
-            definition: { type: 'ellipse_by_equation', a, b }
+            centerX,
+            centerY,
+            a,
+            b,
+            rotation,
+            definition: { type: 'ellipse_by_equation', a, b, centerX, centerY, rotation }
         } as any);
     };
 
@@ -131,41 +137,85 @@ export const ConicPanel: React.FC = () => {
                                         onChange={() => setEllipseMode('equation')}
                                         className="accent-blue-500"
                                     />
-                                    标准方程 x²/a² + y²/b² = 1
+                                    一般方程 (可指定中心和旋转)
                                 </label>
                             </div>
 
                             {ellipseMode === 'equation' && (
-                                <div className="flex gap-2 items-center">
-                                    <span className="text-sm">a=</span>
-                                    <input
-                                        type="number"
-                                        value={ellipseA}
-                                        onChange={(e) => setEllipseA(e.target.value)}
-                                        onKeyDown={handleKeyDown}
-                                        className={clsx(
-                                            "border rounded px-2 py-1 w-16 text-sm",
-                                            darkTheme ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"
-                                        )}
-                                    />
-                                    <span className="text-sm">b=</span>
-                                    <input
-                                        type="number"
-                                        value={ellipseB}
-                                        onChange={(e) => setEllipseB(e.target.value)}
-                                        onKeyDown={handleKeyDown}
-                                        className={clsx(
-                                            "border rounded px-2 py-1 w-16 text-sm",
-                                            darkTheme ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"
-                                        )}
-                                    />
-                                    <button
-                                        onClick={handleAddEllipse}
-                                        className="bg-blue-500 text-white rounded p-1.5 hover:bg-blue-600"
-                                        title="添加椭圆"
-                                    >
-                                        <Plus size={16} />
-                                    </button>
+                                <div className="space-y-2">
+                                    <div className="flex gap-2 items-center">
+                                        <span className="text-sm">a=</span>
+                                        <input
+                                            type="number"
+                                            value={ellipseA}
+                                            onChange={(e) => setEllipseA(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            className={clsx(
+                                                "border rounded px-2 py-1 w-14 text-sm",
+                                                darkTheme ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"
+                                            )}
+                                        />
+                                        <span className="text-sm">b=</span>
+                                        <input
+                                            type="number"
+                                            value={ellipseB}
+                                            onChange={(e) => setEllipseB(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            className={clsx(
+                                                "border rounded px-2 py-1 w-14 text-sm",
+                                                darkTheme ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"
+                                            )}
+                                        />
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                        <span className="text-sm">中心</span>
+                                        <span className="text-sm">(</span>
+                                        <input
+                                            type="number"
+                                            value={ellipseCenterX}
+                                            onChange={(e) => setEllipseCenterX(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder="h"
+                                            className={clsx(
+                                                "border rounded px-2 py-1 w-12 text-sm",
+                                                darkTheme ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"
+                                            )}
+                                        />
+                                        <span className="text-sm">,</span>
+                                        <input
+                                            type="number"
+                                            value={ellipseCenterY}
+                                            onChange={(e) => setEllipseCenterY(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder="k"
+                                            className={clsx(
+                                                "border rounded px-2 py-1 w-12 text-sm",
+                                                darkTheme ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"
+                                            )}
+                                        />
+                                        <span className="text-sm">)</span>
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                        <span className="text-sm">旋转</span>
+                                        <input
+                                            type="number"
+                                            value={ellipseRotation}
+                                            onChange={(e) => setEllipseRotation(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            className={clsx(
+                                                "border rounded px-2 py-1 w-14 text-sm",
+                                                darkTheme ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"
+                                            )}
+                                        />
+                                        <span className="text-xs text-gray-500">°</span>
+                                        <button
+                                            onClick={handleAddEllipse}
+                                            className="bg-blue-500 text-white rounded p-1.5 hover:bg-blue-600 ml-auto"
+                                            title="添加椭圆"
+                                        >
+                                            <Plus size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 

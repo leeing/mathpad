@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MousePointer2, Circle, Minus, Activity, CircleDot, Ruler, Triangle, CheckSquare, GitBranch, Dot, Square, Hash, CircleDotDashed, Target, MoveRight, Equal, Percent, MinusSquare, Type, CircleDashed, Waves, LayoutTemplate, ChevronDown, ChevronRight } from 'lucide-react';
+import { MousePointer2, Circle, Minus, FlipVertical2, Ruler, Triangle, CheckSquare, AlignHorizontalSpaceAround, Dot, Square, Hash, CircleDotDashed, Target, MoveRight, Equal, Percent, MinusSquare, Type, CircleDashed, Waves, LayoutTemplate, ChevronDown, ChevronRight, Crosshair } from 'lucide-react';
 import { useToolStore } from '../store/toolStore';
 import { useViewStore } from '../store/viewStore';
 import type { ToolType } from '../store/toolStore';
@@ -26,7 +26,7 @@ export const Toolbar: React.FC = () => {
       name: '绘图',
       defaultOpen: true,
       items: [
-        { id: 'point', icon: CircleDot, label: '点 (P)', shortcut: 'P' },
+        { id: 'point', icon: Dot, label: '点 (P)', shortcut: 'P' },
         { id: 'line', icon: Minus, label: '线段 (L)', shortcut: 'L' },
         { id: 'vector', icon: MoveRight, label: '向量' },
         { id: 'circle', icon: Circle, label: '圆 (C)', shortcut: 'C' },
@@ -42,9 +42,9 @@ export const Toolbar: React.FC = () => {
       name: '构造',
       defaultOpen: true,
       items: [
-        { id: 'perpendicular', icon: Activity, label: '垂线' },
-        { id: 'parallel', icon: GitBranch, label: '平行线' },
-        { id: 'midpoint', icon: Dot, label: '中点' },
+        { id: 'perpendicular', icon: FlipVertical2, label: '垂线' },
+        { id: 'parallel', icon: AlignHorizontalSpaceAround, label: '平行线' },
+        { id: 'midpoint', icon: Crosshair, label: '中点' },
         { id: 'incenter', icon: CircleDotDashed, label: '内心+内切圆' },
         { id: 'circumcenter', icon: Target, label: '外心+外接圆' },
       ]

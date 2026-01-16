@@ -1,5 +1,11 @@
 import { create } from 'zustand';
 
+interface ContextMenuState {
+  elementId: string;
+  x: number;
+  y: number;
+}
+
 interface ViewState {
   scale: number;
   position: { x: number; y: number };
@@ -7,7 +13,11 @@ interface ViewState {
   showGrid: boolean;
   showAxes: boolean;
   mousePosition: { x: number; y: number } | null;
-  darkTheme: boolean;  // v0.13.0
+  darkTheme: boolean;
+  showHiddenElements: boolean;
+  hoveredId: string | null;
+  contextMenu: ContextMenuState | null;
+  selectedElementY: number | null; // Y position of selected element in sidebar
   setScale: (scale: number) => void;
   setPosition: (pos: { x: number; y: number }) => void;
   setSize: (size: { width: number; height: number }) => void;
@@ -15,7 +25,12 @@ interface ViewState {
   setShowAxes: (show: boolean) => void;
   setMousePosition: (pos: { x: number; y: number } | null) => void;
   centerOnOrigin: () => void;
-  toggleDarkTheme: () => void;  // v0.13.0
+  toggleDarkTheme: () => void;
+  toggleShowHiddenElements: () => void;
+  setHoveredId: (id: string | null) => void;
+  openContextMenu: (elementId: string, x: number, y: number) => void;
+  closeContextMenu: () => void;
+  setSelectedElementY: (y: number | null) => void;
 }
 
 export const useViewStore = create<ViewState>((set, get) => ({
@@ -26,6 +41,10 @@ export const useViewStore = create<ViewState>((set, get) => ({
   showAxes: true,
   mousePosition: null,
   darkTheme: false,
+  showHiddenElements: false,
+  hoveredId: null,
+  contextMenu: null,
+  selectedElementY: null,
   setScale: (scale) => set({ scale }),
   setPosition: (position) => set({ position }),
   setSize: (size) => set({ size }),
@@ -37,6 +56,10 @@ export const useViewStore = create<ViewState>((set, get) => ({
     set({ position: { x: size.width / 2, y: size.height / 2 } });
   },
   toggleDarkTheme: () => set((state) => ({ darkTheme: !state.darkTheme })),
+  toggleShowHiddenElements: () => set((state) => ({ showHiddenElements: !state.showHiddenElements })),
+  setHoveredId: (hoveredId) => set({ hoveredId }),
+  openContextMenu: (elementId, x, y) => set({ contextMenu: { elementId, x, y } }),
+  closeContextMenu: () => set({ contextMenu: null }),
+  setSelectedElementY: (selectedElementY) => set({ selectedElementY }),
 }));
-
 

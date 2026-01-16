@@ -12,16 +12,28 @@ interface EllipseProps {
 }
 
 export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
+    // All hooks MUST be called before any early returns
     const { scale } = useViewStore();
+    const showHiddenElements = useViewStore((state) => state.showHiddenElements);
+    const hoveredId = useViewStore((state) => state.hoveredId);
+    const setHoveredId = useViewStore((state) => state.setHoveredId);
     const activeTool = useToolStore((state) => state.activeTool);
     const updateElement = useGeoStore((state) => state.updateElement);
+    const selection = useGeoStore((state) => state.selection);
+    const dragStartRef = useRef<{ centerX: number; centerY: number } | null>(null);
+
+    // Handle visibility - if hidden and not in preview mode, don't render
+    const isHidden = element.visible === false;
+    if (isHidden && !showHiddenElements) {
+        return null;
+    }
 
     const darkTheme = useViewStore.getState().darkTheme;
-    const selection = useGeoStore((state) => state.selection);
     const isSelected = selection.includes(element.id);
+    const isHovered = hoveredId === element.id;
 
-    // Track initial position for drag
-    const dragStartRef = useRef<{ centerX: number; centerY: number } | null>(null);
+    const handleMouseEnter = () => setHoveredId(element.id);
+    const handleMouseLeave = () => setHoveredId(null);
 
     // Convert math coordinates to pixel coordinates
     const centerXPixel = element.centerX * PIXELS_PER_UNIT;
@@ -29,9 +41,10 @@ export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
     const radiusXPixel = element.a * PIXELS_PER_UNIT;
     const radiusYPixel = element.b * PIXELS_PER_UNIT;
 
-    // Determine stroke color
+    // Determine stroke color: selected -> blue, hovered -> orange
     const getStrokeColor = () => {
         if (isSelected) return '#3b82f6';
+        if (isHovered) return '#f59e0b';
         if (element.style.stroke && element.style.stroke !== '#000') {
             return element.style.stroke;
         }
@@ -93,7 +106,7 @@ export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
             y={centerYPixel}
             radiusX={radiusXPixel}
             radiusY={radiusYPixel}
-            rotation={element.rotation * (180 / Math.PI)} // Convert radians to degrees
+            rotation={element.rotation * (180 / Math.PI)}
             stroke={getStrokeColor()}
             strokeWidth={element.style.strokeWidth ? element.style.strokeWidth / scale : 2 / scale}
             dash={element.style.dash ? element.style.dash.map(d => d / scale) : undefined}
@@ -106,9 +119,12 @@ export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
             onDragEnd={handleDragEnd}
             onClick={handleClick}
             onTap={handleClick}
-            shadowColor={isSelected ? '#3b82f6' : undefined}
-            shadowBlur={isSelected ? 8 : 0}
-            shadowEnabled={isSelected}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            shadowColor={isSelected ? '#3b82f6' : (isHovered ? '#f59e0b' : undefined)}
+            shadowBlur={isSelected ? 8 : (isHovered ? 6 : 0)}
+            shadowEnabled={isSelected || isHovered}
+            opacity={isHidden ? 0.4 : 1}
         />
     );
 };

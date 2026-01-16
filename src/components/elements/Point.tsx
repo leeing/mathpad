@@ -6,6 +6,7 @@ import { useGeoStore } from '../../store/geoStore';
 import { useToolStore } from '../../store/toolStore';
 import { generateId } from '../../utils/id';
 import { getIncenter, getCircumcenter } from '../../core/geometry';
+import { PIXELS_PER_UNIT } from '../../constants/grid';
 import Konva from 'konva';
 
 interface PointProps {
@@ -13,17 +14,26 @@ interface PointProps {
 }
 
 export const Point: React.FC<PointProps> = ({ element }) => {
+    // All hooks MUST be called before any early returns
     const { scale } = useViewStore();
+    const showHiddenElements = useViewStore((state) => state.showHiddenElements);
+    const hoveredId = useViewStore((state) => state.hoveredId);
+    const setHoveredId = useViewStore((state) => state.setHoveredId);
     const updateElement = useGeoStore((state) => state.updateElement);
     const activeTool = useToolStore((state) => state.activeTool);
+    const selection = useGeoStore((state) => state.selection);
+    const dragStartRef = React.useRef<Map<string, { x: number; y: number }> | null>(null);
+
+    // Handle visibility - if hidden and not in preview mode, don't render
+    const isHidden = element.visible === false;
+    if (isHidden && !showHiddenElements) {
+        return null;
+    }
 
     // Use custom point radius from style or default to 6
     const baseRadius = element.style.pointRadius || 6;
     const radius = baseRadius / scale;
     const hitRadius = 15 / scale;
-
-    // Track initial positions of all connected points for group drag
-    const dragStartRef = React.useRef<Map<string, { x: number; y: number }> | null>(null);
 
     // Find all points connected to this point via line segments (BFS)
     const findConnectedPoints = (startPointId: string): string[] => {
@@ -143,6 +153,62 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                     name: 'l',
                     visible: true,
                     style: { stroke: '#000', strokeWidth: 2 },
+                    dependencies: [p1Id, p2Id],
+                    definition: { type: 'line_from_points', p1: p1Id, p2: p2Id },
+                    p1: p1Id,
+                    p2: p2Id
+                });
+                resetConstruction();
+            }
+        } else if (activeTool === 'vector') {
+            e.cancelBubble = true;
+
+            const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
+            const addElement = useGeoStore.getState().addElement;
+
+            if (constructionStep === 0) {
+                addTempId(element.id);
+                setConstructionStep(1);
+            } else if (constructionStep === 1) {
+                const p1Id = tempIds[0];
+                const p2Id = element.id;
+                if (p1Id === p2Id) return;
+
+                addElement({
+                    id: generateId(),
+                    type: 'line',
+                    subtype: 'vector',
+                    name: 'v',
+                    visible: true,
+                    style: { stroke: '#dc2626', strokeWidth: 2 },
+                    dependencies: [p1Id, p2Id],
+                    definition: { type: 'line_from_points', p1: p1Id, p2: p2Id },
+                    p1: p1Id,
+                    p2: p2Id
+                });
+                resetConstruction();
+            }
+        } else if (activeTool === 'auxiliary') {
+            e.cancelBubble = true;
+
+            const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
+            const addElement = useGeoStore.getState().addElement;
+
+            if (constructionStep === 0) {
+                addTempId(element.id);
+                setConstructionStep(1);
+            } else if (constructionStep === 1) {
+                const p1Id = tempIds[0];
+                const p2Id = element.id;
+                if (p1Id === p2Id) return;
+
+                addElement({
+                    id: generateId(),
+                    type: 'line',
+                    subtype: 'segment',
+                    name: 'aux',
+                    visible: true,
+                    style: { stroke: '#9ca3af', strokeWidth: 1.5, dash: [6, 4] },
                     dependencies: [p1Id, p2Id],
                     definition: { type: 'line_from_points', p1: p1Id, p2: p2Id },
                     p1: p1Id,
@@ -445,12 +511,131 @@ export const Point: React.FC<PointProps> = ({ element }) => {
 
                 resetConstruction();
             }
+        } else if (activeTool === 'ellipse') {
+            const ellipseMode = useToolStore.getState().ellipseMode;
+            if (ellipseMode === 'equation') return; // Handled by panel
+
+            e.cancelBubble = true;
+            const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
+            const { addElement, getElementById } = useGeoStore.getState();
+
+            if (constructionStep < 2) {
+                addTempId(element.id);
+                setConstructionStep(constructionStep + 1);
+            } else if (constructionStep === 2) {
+                const p1Id = tempIds[0];
+                const p2Id = tempIds[1];
+                const p3Id = element.id;
+
+                const p1 = getElementById(p1Id) as PointElement | undefined;
+                const p2 = getElementById(p2Id) as PointElement | undefined;
+                const p3 = getElementById(p3Id) as PointElement | undefined;
+
+                if (!p1 || !p2 || !p3) { resetConstruction(); return; }
+
+                if (ellipseMode === 'foci') {
+                    // Distance calculation in pixel coordinates
+                    const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+                        Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+
+                    // Calculate distances in pixel coordinates
+                    const pf1Pixels = dist(p3, p1);
+                    const pf2Pixels = dist(p3, p2);
+                    const f1f2Pixels = dist(p1, p2);
+
+                    const twoA = pf1Pixels + pf2Pixels;
+                    const aPixels = twoA / 2;
+                    const cPixels = f1f2Pixels / 2;
+
+                    if (aPixels <= cPixels) { resetConstruction(); return; }
+
+                    const bPixels = Math.sqrt(aPixels * aPixels - cPixels * cPixels);
+
+                    // Convert to math units
+                    const a = aPixels / PIXELS_PER_UNIT;
+                    const b = bPixels / PIXELS_PER_UNIT;
+
+                    // Center is midpoint of foci (convert to math coordinates)
+                    const centerX = ((p1.x + p2.x) / 2) / PIXELS_PER_UNIT;
+                    const centerY = -((p1.y + p2.y) / 2) / PIXELS_PER_UNIT;  // Flip Y
+
+                    // Calculate rotation in SCREEN coordinates for Konva (NO Y flip)
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;  // NO Y flip - Konva expects screen angle
+                    const rotation = Math.atan2(dy, dx);
+
+                    addElement({
+                        id: generateId(),
+                        type: 'ellipse',
+                        name: '椭圆',
+                        visible: true,
+                        style: { stroke: '#000', strokeWidth: 2 },
+                        dependencies: [p1Id, p2Id, p3Id],
+                        centerX, centerY, a, b, rotation,
+                        definition: { type: 'ellipse_by_foci', f1: p1Id, f2: p2Id, pointOn: p3Id }
+                    } as any);
+                } else if (ellipseMode === 'center') {
+                    // Center in math coordinates
+                    const centerX = p1.x / PIXELS_PER_UNIT;
+                    const centerY = -p1.y / PIXELS_PER_UNIT;  // Flip Y
+
+                    // Major axis: distance in pixels, convert to units
+                    const aPixels = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+                    const a = aPixels / PIXELS_PER_UNIT;
+
+                    // Rotation in SCREEN coordinates for Konva (NO Y flip)
+                    const dxMajor = p2.x - p1.x;
+                    const dyMajor = p2.y - p1.y;
+                    const rotation = Math.atan2(dyMajor, dxMajor);
+
+                    // Calculate unit vectors for major and minor axes
+                    const majorLength = Math.sqrt(dxMajor * dxMajor + dyMajor * dyMajor);
+                    if (majorLength < 1) { resetConstruction(); return; }
+                    const ux = dxMajor / majorLength;  // Major axis direction
+                    const uy = dyMajor / majorLength;
+                    const vx = -uy;  // Perpendicular (minor axis direction)
+                    const vy = ux;
+
+                    // Project point 3 onto the minor axis to get b
+                    const p3ToCenter = { x: p3.x - p1.x, y: p3.y - p1.y };
+                    const bPixels = Math.abs(p3ToCenter.x * vx + p3ToCenter.y * vy);
+                    const b = bPixels / PIXELS_PER_UNIT;
+
+                    addElement({
+                        id: generateId(),
+                        type: 'ellipse',
+                        name: '椭圆',
+                        visible: true,
+                        style: { stroke: '#000', strokeWidth: 2 },
+                        dependencies: [p1Id, p2Id, p3Id],
+                        centerX, centerY, a, b, rotation,
+                        definition: { type: 'ellipse_by_center_axes', center: p1Id, majorEnd: p2Id, minorEnd: p3Id }
+                    } as any);
+                }
+
+                resetConstruction();
+            }
         }
     }
 
     const darkTheme = useViewStore.getState().darkTheme;
-    const selection = useGeoStore((state) => state.selection);
     const isSelected = selection.includes(element.id);
+    const isHovered = hoveredId === element.id;
+
+    const handleMouseEnter = () => setHoveredId(element.id);
+    const handleMouseLeave = () => setHoveredId(null);
+
+    const handleContextMenu = (e: any) => {
+        e.evt.preventDefault();
+        const { openContextMenu } = useViewStore.getState();
+        const stage = e.target.getStage();
+        if (stage) {
+            const pointer = stage.getPointerPosition();
+            if (pointer) {
+                openContextMenu(element.id, pointer.x, pointer.y);
+            }
+        }
+    };
 
     return (
         <Group
@@ -462,16 +647,20 @@ export const Point: React.FC<PointProps> = ({ element }) => {
             onDragEnd={handleDragEnd}
             onClick={handleClick}
             onTap={handleClick}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onContextMenu={handleContextMenu}
+            opacity={isHidden ? 0.4 : 1}
         >
             <Circle radius={hitRadius} fill="transparent" />
             <Circle
                 radius={radius}
                 fill={isSelected ? '#60a5fa' : (element.style.fill || '#3b82f6')}
-                stroke={isSelected ? '#2563eb' : (element.style.stroke || '#2563eb')}
+                stroke={isSelected ? '#2563eb' : (isHovered ? '#f59e0b' : (element.style.stroke || '#2563eb'))}
                 strokeWidth={element.style.strokeWidth ? element.style.strokeWidth / scale : 2 / scale}
-                shadowColor={isSelected ? '#3b82f6' : undefined}
-                shadowBlur={isSelected ? 10 : 0}
-                shadowEnabled={isSelected}
+                shadowColor={isSelected ? '#3b82f6' : (isHovered ? '#f59e0b' : undefined)}
+                shadowBlur={isSelected ? 10 : (isHovered ? 8 : 0)}
+                shadowEnabled={isSelected || isHovered}
             />
             <Text
                 text={element.name}

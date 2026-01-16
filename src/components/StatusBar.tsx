@@ -28,27 +28,30 @@ const toolLabels: Record<string, string> = {
     template: '模板库',
 };
 
-const toolHints: Record<string, string> = {
+// Construction step hints for multi-step tools
+const constructionStepHints: Record<string, string[]> = {
+    line: ['点击起点', '点击终点'],
+    vector: ['点击起点', '点击终点'],
+    circle: ['点击圆心', '点击圆上一点'],
+    arc: ['点击圆心', '点击起点', '点击终点'],
+    auxiliary: ['点击起点', '点击终点'],
+    incenter: ['选择第1个顶点', '选择第2个顶点', '选择第3个顶点'],
+    circumcenter: ['选择第1个顶点', '选择第2个顶点', '选择第3个顶点'],
+    verify_triangle: ['选择第1个顶点', '选择第2个顶点', '选择第3个顶点'],
+    measure_angle: ['选择第1个点', '选择顶点（角的顶点）', '选择第3个点'],
+    ellipse_foci: ['点击第1个焦点', '点击第2个焦点', '点击椭圆上一点'],
+    ellipse_center: ['点击中心', '点击长轴端点', '点击短轴方向'],
+    parabola_focus_directrix: ['点击焦点', '点击准线上一点'],
+    parabola_vertex_focus: ['点击顶点', '点击焦点'],
+};
+
+const defaultHints: Record<string, string> = {
     select: '点击选择元素，拖拽移动点',
     point: '点击创建点',
-    line: '点击两点创建线段',
-    vector: '点击两点创建向量',
-    circle: '点击圆心，再点击边上的点',
-    rectangle: '点击两个对角点',
-    arc: '点击圆心、起点、终点',
-    auxiliary: '点击两点创建辅助线（灰色虚线）',
+    midpoint: '点击线段获取中点',
+    segment_mark: '点击线段添加标记',
     perpendicular: '选择一条线和一个点',
     parallel: '选择一条线和一个点',
-    midpoint: '选择一条线段',
-    incenter: '选择三角形的三个顶点',
-    circumcenter: '选择三角形的三个顶点',
-    tangent: '选择圆和圆外的点',
-    segment_mark: '点击线段添加标记',
-    congruent: '选择两个三角形标记全等 ≅',
-    similar: '选择两个三角形标记相似 ∽',
-    measure_length: '选择两个点',
-    measure_angle: '选择三个点（顶点在中间）',
-    verify_triangle: '选择三个点',
     ellipse: '在左下角面板选择定义方式',
     parabola: '在左下角面板选择定义方式',
     template: '在左下角选择模板快速创建图形',
@@ -56,13 +59,43 @@ const toolHints: Record<string, string> = {
 
 export const StatusBar: React.FC = () => {
     const activeTool = useToolStore((state) => state.activeTool);
+    const tempIds = useToolStore((state) => state.tempIds);
+    const ellipseMode = useToolStore((state) => state.ellipseMode);
+    const parabolaMode = useToolStore((state) => state.parabolaMode);
     const mousePosition = useViewStore((state) => state.mousePosition);
 
     const toolName = toolLabels[activeTool] || activeTool;
-    const hint = toolHints[activeTool] || '';
+
+    // Determine dynamic hint based on tool and construction step
+    const getDynamicHint = (): string => {
+        // Map tool+mode to step hints key (use string for composite keys)
+        let hintKey: string = activeTool;
+        if (activeTool === 'ellipse') {
+            if (ellipseMode === 'foci') hintKey = 'ellipse_foci';
+            else if (ellipseMode === 'center') hintKey = 'ellipse_center';
+            else return '使用面板输入参数，点击"+"创建';
+        }
+        if (activeTool === 'parabola') {
+            if (parabolaMode === 'focus_directrix') hintKey = 'parabola_focus_directrix';
+            else if (parabolaMode === 'vertex_focus') hintKey = 'parabola_vertex_focus';
+            else return '使用面板输入参数，点击"+"创建';
+        }
+
+        const steps = constructionStepHints[hintKey];
+        if (steps) {
+            const currentStep = tempIds.length; // tempIds.length = completed steps
+            const totalSteps = steps.length;
+            if (currentStep < totalSteps) {
+                return `步骤 ${currentStep + 1}/${totalSteps}：${steps[currentStep]}`;
+            }
+        }
+
+        return defaultHints[activeTool] || '';
+    };
+
+    const hint = getDynamicHint();
 
     // Convert pixel coordinates to mathematical coordinates
-    // Divide by PIXELS_PER_UNIT to get grid units, flip Y for math convention (positive Y is up)
     const displayX = mousePosition ? (mousePosition.x / PIXELS_PER_UNIT).toFixed(1) : '-';
     const displayY = mousePosition ? (-mousePosition.y / PIXELS_PER_UNIT).toFixed(1) : '-';
 
@@ -72,7 +105,7 @@ export const StatusBar: React.FC = () => {
                 工具: <span className="text-blue-400">{toolName}</span>
             </span>
             <span className="text-gray-400">|</span>
-            <span className="flex-1 text-gray-300">{hint}</span>
+            <span className="flex-1 text-yellow-300">{hint}</span>
             <span className="text-gray-400">|</span>
             <span className="font-mono">
                 坐标: ({displayX}, {displayY})
