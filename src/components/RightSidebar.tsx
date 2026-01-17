@@ -24,7 +24,9 @@ const getElementIcon = (type: string) => {
 };
 
 export const RightSidebar: React.FC = () => {
-    const [collapsed, setCollapsed] = useState(false);
+    // Use global sidebar collapsed state from viewStore
+    const collapsed = useViewStore((state) => state.sidebarCollapsed);
+    const setCollapsed = useViewStore((state) => state.setSidebarCollapsed);
 
     // Element list state
     const elements = useGeoStore((state) => state.elements);
@@ -54,16 +56,18 @@ export const RightSidebar: React.FC = () => {
     // Type labels in Chinese
     const typeLabels: Record<string, string> = {
         point: '点',
-        line: '线段/直线',
+        line: '线',
         circle: '圆',
         ellipse: '椭圆',
         parabola: '抛物线',
         hyperbola: '双曲线',
+        function_graph: '函数',
         rectangle: '矩形',
         arc: '弧',
         angle: '角',
         segment_mark: '标记',
         label: '标签',
+        vector: '向量',
     };
 
     // Group elements by type
@@ -77,7 +81,7 @@ export const RightSidebar: React.FC = () => {
     }, {} as Record<string, typeof elementList>);
 
     // Order of type groups
-    const typeOrder = ['point', 'line', 'circle', 'ellipse', 'parabola', 'hyperbola', 'rectangle', 'arc', 'angle', 'segment_mark', 'label'];
+    const typeOrder = ['point', 'line', 'circle', 'ellipse', 'parabola', 'hyperbola', 'function_graph', 'rectangle', 'arc', 'angle', 'segment_mark', 'label'];
     const sortedTypes = Object.keys(groupedElements).sort((a, b) => {
         const aIndex = typeOrder.indexOf(a);
         const bIndex = typeOrder.indexOf(b);
@@ -153,7 +157,7 @@ export const RightSidebar: React.FC = () => {
 
     return (
         <div className={clsx(
-            "absolute right-0 top-20 bottom-8 w-60 flex flex-col z-10 shadow-xl",
+            "absolute right-4 top-20 bottom-16 w-40 flex flex-col z-10 shadow-lg rounded-lg overflow-hidden",
             darkTheme ? "bg-gray-800 text-gray-100" : "bg-white text-gray-800"
         )}>
             {/* Header with collapse button */}

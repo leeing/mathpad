@@ -12,7 +12,12 @@ interface HyperbolaProps {
 
 export const Hyperbola: React.FC<HyperbolaProps> = ({ element }) => {
   const { scale, size } = useViewStore();
+  const examMode = useViewStore((state) => state.examMode);
+  const showHiddenElements = useViewStore((state) => state.showHiddenElements);
   const selectedId = useToolStore((state) => state.selectedId);
+
+  // Handle visibility
+  if (!element.visible && !showHiddenElements) return null;
 
   const { branch1, branch2 } = useMemo(() => {
     const xRange = (size.width / 2) / PIXELS_PER_UNIT;
@@ -45,7 +50,7 @@ export const Hyperbola: React.FC<HyperbolaProps> = ({ element }) => {
   if (branch1.length === 0 && branch2.length === 0) return null;
 
   const isSelected = selectedId === element.id;
-  const stroke = isSelected ? '#3b82f6' : element.style.stroke;
+  const stroke = element.style.stroke || (examMode ? '#111827' : (isSelected ? '#dc2626' : '#000'));
   const strokeWidth = element.style.strokeWidth / scale;
   const dash = element.style.dash ? element.style.dash.map((d) => d / scale) : undefined;
 
@@ -59,6 +64,13 @@ export const Hyperbola: React.FC<HyperbolaProps> = ({ element }) => {
           dash={dash}
           hitStrokeWidth={10 / scale}
           onClick={() => useToolStore.getState().setSelectedId(element.id)}
+          onContextMenu={(e) => {
+            e.evt.preventDefault();
+            const stage = e.target.getStage();
+            const pointer = stage?.getPointerPosition();
+            if (!pointer) return;
+            useViewStore.getState().openContextMenu(element.id, pointer.x, pointer.y);
+          }}
         />
       )}
       {branch2.length > 0 && (
@@ -69,9 +81,15 @@ export const Hyperbola: React.FC<HyperbolaProps> = ({ element }) => {
           dash={dash}
           hitStrokeWidth={10 / scale}
           onClick={() => useToolStore.getState().setSelectedId(element.id)}
+          onContextMenu={(e) => {
+            e.evt.preventDefault();
+            const stage = e.target.getStage();
+            const pointer = stage?.getPointerPosition();
+            if (!pointer) return;
+            useViewStore.getState().openContextMenu(element.id, pointer.x, pointer.y);
+          }}
         />
       )}
     </>
   );
 };
-

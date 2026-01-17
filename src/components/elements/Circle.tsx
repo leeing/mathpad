@@ -12,9 +12,13 @@ interface CircleProps {
 
 export const Circle: React.FC<CircleProps> = ({ element }) => {
   const { scale } = useViewStore();
+  const examMode = useViewStore((state) => state.examMode);
   const activeTool = useToolStore((state) => state.activeTool);
+  const selection = useGeoStore((state) => state.selection);
   const getElementById = useGeoStore((state) => state.getElementById);
   const updateElement = useGeoStore((state) => state.updateElement);
+  const hoveredId = useViewStore((state) => state.hoveredId);
+  const setHoveredId = useViewStore((state) => state.setHoveredId);
 
   // Track initial positions for drag translation
   const dragStartRef = useRef<{ cx: number; cy: number; ex: number; ey: number } | null>(null);
@@ -22,6 +26,7 @@ export const Circle: React.FC<CircleProps> = ({ element }) => {
   const center = getElementById(element.center) as PointElement;
   const edge = getElementById(element.edge) as PointElement;
 
+  if (!element.visible) return null;
   if (!center || !edge) return null;
 
   const dx = edge.x - center.x;
@@ -77,18 +82,31 @@ export const Circle: React.FC<CircleProps> = ({ element }) => {
       useToolStore.getState().setSelectedId(element.id);
       return;
     }
+
+    // Tangent tool: click circle to add to tempIds
+    if (activeTool === 'tangent') {
+      e.cancelBubble = true;
+      const { addTempId } = useToolStore.getState();
+      addTempId(element.id);
+      return;
+    }
   };
 
   const darkTheme = useViewStore.getState().darkTheme;
-  const selection = useGeoStore((state) => state.selection);
   const isSelected = selection.includes(element.id);
+  const isHovered = hoveredId === element.id;
 
-  // Determine stroke color
+  const handleMouseEnter = () => setHoveredId(element.id);
+  const handleMouseLeave = () => setHoveredId(null);
+
+  // Determine stroke color: use element's set color, only hover changes color
   const getStrokeColor = () => {
-    if (isSelected) return '#3b82f6';
+    // User-defined color takes priority (selection indicated by shadow instead)
     if (element.style.stroke && element.style.stroke !== '#000') {
       return element.style.stroke;
     }
+    if (isHovered) return '#f59e0b';
+    if (examMode) return '#111827';
     return darkTheme ? '#e5e7eb' : '#000';
   };
 
@@ -98,20 +116,29 @@ export const Circle: React.FC<CircleProps> = ({ element }) => {
       y={center.y}
       radius={radius}
       stroke={getStrokeColor()}
-      strokeWidth={element.style.strokeWidth ? element.style.strokeWidth / scale : 2 / scale}
+      strokeWidth={element.style.strokeWidth ? element.style.strokeWidth / scale : 1.5 / scale}
       dash={element.style.dash ? element.style.dash.map(d => d / scale) : undefined}
       fill={element.style.fill || 'transparent'}
       hitStrokeWidth={10 / scale}
-      listening={activeTool === 'select'}
+      listening={activeTool === 'select' || activeTool === 'tangent'}
       draggable={activeTool === 'select'}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
       onClick={handleClick}
       onTap={handleClick}
-      shadowColor={isSelected ? '#3b82f6' : undefined}
-      shadowBlur={isSelected ? 8 : 0}
-      shadowEnabled={isSelected}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onContextMenu={(e) => {
+        e.evt.preventDefault();
+        const stage = e.target.getStage();
+        const pointer = stage?.getPointerPosition();
+        if (!pointer) return;
+        useViewStore.getState().openContextMenu(element.id, pointer.x, pointer.y);
+      }}
+      shadowColor={isSelected ? '#dc2626' : (isHovered ? '#f59e0b' : undefined)}
+      shadowBlur={isSelected ? 8 : (isHovered ? 6 : 0)}
+      shadowEnabled={isSelected || isHovered}
     />
   );
 };

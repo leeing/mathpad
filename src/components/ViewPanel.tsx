@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
-import { Grid3X3, Axis3d, Download, ChevronDown, FolderOpen, Trash2, FileJson, Image, Moon, Sun } from 'lucide-react';
+import { Grid3X3, Axis3d, Download, ChevronDown, FolderOpen, Trash2, FileJson, Image, Moon, Sun, FileOutput, FileCheck2 } from 'lucide-react';
 import { useViewStore } from '../store/viewStore';
 import { useGeoStore } from '../store/geoStore';
 import { clsx } from 'clsx';
 import Konva from 'konva';
+import { downloadDataUrl, exportAnswerSheetPng, exportCroppedPng } from '../core/layout/export';
 
 interface ViewPanelProps {
   stageRef: React.RefObject<Konva.Stage | null>;
@@ -17,8 +18,8 @@ const pngPresets = [
 ];
 
 export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
-  const { showGrid, showAxes, setShowGrid, setShowAxes, darkTheme, toggleDarkTheme } = useViewStore();
-  const { elements, clearAll, loadElements } = useGeoStore();
+  const { showGrid, showAxes, setShowGrid, setShowAxes, darkTheme, toggleDarkTheme, examMode, toggleExamMode, setExamMode, setSidebarCollapsed } = useViewStore();
+  const { elements, clearAll, loadElements, setSelection } = useGeoStore();
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showPngOptions, setShowPngOptions] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,15 +53,76 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
       }
 
       const uri = stageRef.current.toDataURL({ pixelRatio });
-      const link = document.createElement('a');
-      link.download = `几何图形-${getTimestamp()}.png`;
-      link.href = uri;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadDataUrl(uri, `几何图形-${getTimestamp()}.png`);
     }
     setShowExportMenu(false);
     setShowPngOptions(false);
+  };
+
+  const waitNextPaint = async () => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  };
+
+  const withTempView = async <T,>(
+    patch: { showGrid?: boolean; showAxes?: boolean; examMode?: boolean; clearSelection?: boolean },
+    fn: () => Promise<T>
+  ): Promise<T> => {
+    const prev = useViewStore.getState();
+    const prevSelection = useGeoStore.getState().selection;
+    if (typeof patch.showGrid === 'boolean') setShowGrid(patch.showGrid);
+    if (typeof patch.showAxes === 'boolean') setShowAxes(patch.showAxes);
+    if (typeof patch.examMode === 'boolean') setExamMode(patch.examMode);
+    if (patch.clearSelection) setSelection([]);
+    await waitNextPaint();
+    try {
+      return await fn();
+    } finally {
+      setShowGrid(prev.showGrid);
+      setShowAxes(prev.showAxes);
+      setExamMode(prev.examMode);
+      if (patch.clearSelection) setSelection(prevSelection);
+      await waitNextPaint();
+    }
+  };
+
+  const handleExportCroppedExamPng = async () => {
+    if (!stageRef.current) return;
+    setShowExportMenu(false);
+    setShowPngOptions(false);
+
+    const dataUrl = await withTempView({ showGrid: false, examMode: true, clearSelection: true }, async () => {
+      return await exportCroppedPng(stageRef.current!, {
+        layerId: 'geo-layer',
+        padding: 24,
+        pixelRatio: 3,
+        background: '#ffffff',
+      });
+    });
+
+    if (!dataUrl) return;
+    downloadDataUrl(dataUrl, `题干图-${getTimestamp()}.png`);
+  };
+
+  const handleExportAnswerSheetA4 = async () => {
+    if (!stageRef.current) return;
+    setShowExportMenu(false);
+    setShowPngOptions(false);
+
+    const a4 = { w: 2480, h: 3508 }; // 300dpi
+    const dataUrl = await withTempView({ showGrid: true, showAxes: true, examMode: true, clearSelection: true }, async () => {
+      return await exportAnswerSheetPng(stageRef.current!, {
+        layerId: 'geo-layer',
+        padding: 24,
+        pixelRatio: 3,
+        pageWidthPx: a4.w,
+        pageHeightPx: a4.h,
+        marginPx: 120,
+        background: '#ffffff',
+        border: true,
+      });
+    });
+    if (!dataUrl) return;
+    downloadDataUrl(dataUrl, `答题卡图-A4-${getTimestamp()}.png`);
   };
 
   const handleOpenProject = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,7 +136,7 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
         if (data.elements) {
           loadElements(data.elements);
         }
-      } catch (err) {
+      } catch {
         alert('无法读取文件，请确保是有效的 JSON 格式');
       }
     };
@@ -98,7 +160,7 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
   return (
     <>
       {showClearConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
           <div className={clsx(
             "p-6 rounded-lg shadow-xl max-w-sm",
             darkTheme ? "bg-gray-800 text-white" : "bg-white text-gray-800"
@@ -158,6 +220,17 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
         </button>
         <div className="w-px bg-gray-200 mx-1"></div>
         <button
+          onClick={toggleExamMode}
+          className={clsx(
+            "p-2 rounded hover:bg-gray-100",
+            examMode ? "bg-blue-100 text-blue-600" : "text-gray-600"
+          )}
+          title="试卷风格"
+        >
+          <FileCheck2 size={20} />
+        </button>
+        <div className="w-px bg-gray-200 mx-1"></div>
+        <button
           onClick={() => fileInputRef.current?.click()}
           className="p-2 rounded hover:bg-gray-100 text-gray-600"
           title="打开文件"
@@ -169,6 +242,7 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
             onClick={() => {
               setShowExportMenu(!showExportMenu);
               setShowPngOptions(false);
+              setSidebarCollapsed(true); // Collapse sidebar when opening download menu
             }}
             className="p-2 rounded hover:bg-gray-100 text-gray-600 flex items-center gap-1"
             title="导出"
@@ -184,6 +258,21 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
               >
                 <FileJson size={16} />
                 导出为 JSON
+              </button>
+              <div className="border-t my-1"></div>
+              <button
+                onClick={handleExportCroppedExamPng}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+              >
+                <FileOutput size={16} />
+                题干图（裁剪）
+              </button>
+              <button
+                onClick={handleExportAnswerSheetA4}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+              >
+                <FileOutput size={16} />
+                答题卡图（A4）
               </button>
               <div className="relative">
                 <button

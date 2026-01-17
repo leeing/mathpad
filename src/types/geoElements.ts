@@ -30,7 +30,11 @@ export type GeoDefinition =
   | { type: 'parabola_by_vertex_focus'; vertex: string; focus: string }
   | { type: 'parabola_by_equation'; p: number; direction: 'up' | 'down' | 'left' | 'right' }
   | { type: 'parabola_general'; a: number; b: number; c: number; axis: 'x' | 'y' }
-  | { type: 'hyperbola_by_equation'; a: number; b: number; centerX: number; centerY: number; orientation: 'horizontal' | 'vertical' };
+  | { type: 'hyperbola_by_equation'; a: number; b: number; centerX: number; centerY: number; orientation: 'horizontal' | 'vertical' }
+  | { type: 'circumcenter'; p1: string; p2: string; p3: string }
+  | { type: 'incenter'; p1: string; p2: string; p3: string }
+  | { type: 'incircle_edge'; incenter: string; p1: string; p2: string; p3: string }
+  | { type: 'tangent_point'; circleId: string; externalPointId: string; index: number };
 
 export interface BaseElement {
   id: string;
@@ -39,6 +43,7 @@ export interface BaseElement {
   visible: boolean;
   style: GeoStyle;
   dependencies: string[]; // IDs of elements this depends on (parents)
+  groupId?: string; // Optional group ID - elements with same groupId move together
 }
 
 export interface PointElement extends BaseElement {
@@ -124,16 +129,16 @@ export interface EllipseElement extends BaseElement {
 export interface ParabolaElement extends BaseElement {
   type: 'parabola';
   // Optional standard form properties (might not apply to general/geometric)
-  vertexX?: number;     
-  vertexY?: number;     
-  p?: number;           
+  vertexX?: number;
+  vertexY?: number;
+  p?: number;
   direction?: 'up' | 'down' | 'left' | 'right';
   // General form coefficients: y = ax^2 + bx + c (if axis='y') or x = ay^2 + by + c (if axis='x')
   a?: number;
   b?: number;
   c?: number;
   axis?: 'x' | 'y'; // The axis of symmetry is parallel to this axis? No, usually y=... means symmetry axis is parallel to Y. 
-                    // Let's define: axis='y' means y = ax^2... (vertical symmetry axis), axis='x' means x = ay^2...
+  // Let's define: axis='y' means y = ax^2... (vertical symmetry axis), axis='x' means x = ay^2...
   definition: GeoDefinition;
 }
 

@@ -1,94 +1,169 @@
-# React + TypeScript + Vite
+# MathPad 📐
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **「为中学数学教师打造的几何绘图工具」**
 
-Currently, two official plugins are available:
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/mathpad)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+MathPad 是一款专为**中国中学数学教师**打造的轻量级平面几何绘图工具，完全覆盖**初中（人教版/北师大版）和高中（新课标）**的平面几何教学需求。帮助教师在 **3 分钟**内完成一道几何大题的配图。
 
-## MathPad（中学数学出题画图）
+🔗 **在线体验**: [https://math.qadmlee.com](https://math.qadmlee.com)
 
-### 抛物线（Parabola）
+---
 
-- 顶点 + 焦点
-  - 画布模式：选择“抛物线”工具 → 选择“顶点 + 焦点” → 在画布上依次点击顶点 V、焦点 F
-  - 参数模式：在左下角面板输入 V(x,y)、F(x,y) → 点击“+”生成
-- 焦点 + 准线
-  - 画布模式：选择“抛物线”工具 → 选择“焦点 + 准线” → 在画布上依次点击焦点 F、准线上的两点（用于确定准线直线）
-  - 参数模式：在左下角面板输入焦点 F(x,y) 与准线方程 ax + by + c = 0 → 点击“+”生成
+## ✨ 核心特性
 
-### 双曲线（Hyperbola）
+| 特性 | 说明 |
+|-----|------|
+| 🎯 **几何吸附** | 智能识别交点、中点、垂足等几何位置自动吸附 |
+| 📝 **试卷级标注** | 内置国标数学符号（全等≌、相似∽、平行∥、垂直⊥） |
+| 🖨️ **印刷友好** | 默认黑白高对比度样式，完美适配黑白试卷打印 |
+| 📚 **课标覆盖** | 完整支持初高中平面几何 + 解析几何知识点 |
+| ↩️ **撤销/重做** | 50 步历史记录，支持 Ctrl+Z / Ctrl+Y |
+| 💾 **自动保存** | localStorage 自动持久化，刷新不丢失 |
 
-- 标准式（以中心为原点的平移版本）
-  - 左右开口：x²/a² - y²/b² = 1
-  - 上下开口：y²/a² - x²/b² = 1
-- 使用方法
-  - 选择“双曲线”工具
-  - 在左下角面板输入 a、b、中心 (h,k) 与方向
-  - 点击“+”生成图形
+---
 
-## React Compiler
+## 🛠️ 功能模块
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 基础绘图
+- **点** - 智能吸附（交点 > 中点 > 端点 > 线上点 > 圆上点）
+- **线段 / 射线 / 直线 / 向量** - 支持实线、虚线、点划线
+- **圆 / 弧 / 扇形** - 圆心+半径、三点画圆
+- **三角形 / 四边形** - 多种预设模板
 
-## Expanding the ESLint configuration
+### 智能构造
+- 垂线 / 平行线
+- 中点 / 中垂线
+- 角平分线
+- 三角形五心（重心、垂心、内心、外心、旁心）
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 圆锥曲线（解析几何）
+- **椭圆** - 焦点模式、中心+轴长模式、通用方程模式
+- **抛物线** - 顶点+焦点、焦点+准线、一般方程
+- **双曲线** - 标准方程形式
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 标注系统
+- 顶点自动命名（A, B, C...）
+- 角度标记（自动识别直角显示 ⊾）
+- 边长关系标记（| || ||| 表示相等边）
+- 平行标记（> >> 表示平行边）
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 视图控制
+- 🌙 深色 / 浅色主题切换
+- 📐 网格 / 坐标轴 显示
+- 🔍 缩放与平移
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 导出功能
+- PNG 导出（3x 高清）
+- SVG 矢量导出
+- JSON 工程文件导入/导出
+
+---
+
+## ⌨️ 快捷键
+
+| 快捷键 | 功能 |
+|-------|------|
+| `V` | 选择工具 |
+| `P` | 点工具 |
+| `L` | 线段工具 |
+| `C` | 圆工具 |
+| `T` | 三角形工具 |
+| `R` | 矩形工具 |
+| `Delete` | 删除选中元素 |
+| `Escape` | 取消当前操作 |
+| `Ctrl+Z` | 撤销 |
+| `Ctrl+Y` | 重做 |
+| `Alt` (按住) | 禁用吸附 |
+
+---
+
+## 🚀 快速开始
+
+### 安装依赖
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 开发模式
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+### 构建生产版本
+
+```bash
+npm run build
+```
+
+### 预览生产版本
+
+```bash
+npm run preview
+```
+
+---
+
+## 🏗️ 技术栈
+
+| 层级 | 技术 |
+|-----|------|
+| **框架** | React 19 + TypeScript |
+| **渲染引擎** | Konva.js (Canvas 2D) |
+| **几何计算** | mathjs |
+| **状态管理** | Zustand + zundo (undo/redo) |
+| **样式** | Tailwind CSS 4 |
+| **构建** | Vite (rolldown) |
+
+---
+
+## 📁 项目结构
+
+```
+src/
+├── components/          # UI 组件
+│   ├── CanvasStage.tsx      # 主画布
+│   ├── Toolbar.tsx          # 左侧工具栏
+│   ├── RightSidebar.tsx     # 右侧元素列表
+│   ├── FloatingPropertyPanel.tsx  # 浮动属性面板
+│   ├── ConicPanel.tsx       # 圆锥曲线面板
+│   └── elements/            # 几何元素渲染组件
+├── store/               # 状态管理
+│   ├── geoStore.ts          # 几何元素状态 (DAG 依赖图)
+│   ├── toolStore.ts         # 当前工具状态
+│   └── viewStore.ts         # 视图状态
+├── core/                # 核心计算引擎
+│   ├── geometry.ts          # 几何计算
+│   ├── snapping.ts          # 智能吸附
+│   ├── hyperbola.ts         # 双曲线计算
+│   └── parabola.ts          # 抛物线计算
+└── types/               # TypeScript 类型定义
+    └── geoElements.ts       # 几何元素类型
+```
+
+---
+
+## 📚 知识点覆盖
+
+| 知识点 | 初中 | 高中 | 支持版本 |
+|-------|:----:|:----:|:-------:|
+| 三角形全等/相似 | ✅ | | v0.3.0 |
+| 勾股定理 | ✅ | | v0.2.0 |
+| 平行四边形 | ✅ | | v0.3.0 |
+| 圆的性质 | ✅ | | v0.4.0 |
+| 切线 | ✅ | | v0.4.0 |
+| 轴对称/旋转 | ✅ | | v0.4.0 |
+| 向量 | | ✅ | v0.5.0 |
+| 椭圆/双曲线/抛物线 | | ✅ | v1.0.0 |
+| 函数图像 | | ✅ | v0.6.0 |
+
+---
+
+## 📄 许可证
+
+MIT License © 2026
+
+---

@@ -9,6 +9,7 @@ interface LabelProps {
 
 export const Label: React.FC<LabelProps> = ({ element }) => {
   const { scale } = useViewStore();
+  const examMode = useViewStore((state) => state.examMode);
 
   return (
     <Text
@@ -16,7 +17,7 @@ export const Label: React.FC<LabelProps> = ({ element }) => {
       x={element.x}
       y={element.y}
       fontSize={16 / scale}
-      fill="#4b5563"
+      fill={examMode ? '#111827' : '#4b5563'}
       align="center"
       verticalAlign="middle"
       listening={false}

@@ -4,14 +4,16 @@ import { useViewStore } from '../store/viewStore';
 import { Grid } from './Grid';
 import { GeoLayer } from './GeoLayer';
 import { EllipsePreviewLayer } from './EllipsePreviewLayer';
+import { SnapPreviewLayer } from './SnapPreviewLayer';
 import Konva from 'konva';
 import { useToolStore } from '../store/toolStore';
 import { useGeoStore } from '../store/geoStore';
 import { generateId } from '../utils/id';
-import type { GeoElement } from '../types/geoElements';
+import type { GeoElement, PointElement } from '../types/geoElements';
 import { getSnapPosition } from '../core/snapping';
 import { getIncenter, getCircumcenter } from '../core/geometry';
 import { PIXELS_PER_UNIT } from '../constants/grid';
+import { transformTriangle } from '../core/triangleTransform';
 
 export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
   void props;
@@ -87,21 +89,137 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
 
     const snapResult = getSnapPosition(worldPos.x, worldPos.y, elements, 10 / scale);
 
+    // Handle congruent/similar triangle placement
+    if (activeTool === 'congruent' || activeTool === 'similar') {
+      const { tempIds, resetConstruction } = useToolStore.getState();
+
+      // Only place if 3 vertices have been selected
+      if (tempIds.length === 3) {
+        const { triangleTransform } = useViewStore.getState();
+        const getElementById = useGeoStore.getState().getElementById;
+
+        // Get original triangle vertices
+        const p1 = getElementById(tempIds[0]) as PointElement | undefined;
+        const p2 = getElementById(tempIds[1]) as PointElement | undefined;
+        const p3 = getElementById(tempIds[2]) as PointElement | undefined;
+
+        if (p1 && p2 && p3) {
+          // Use scale=1 for congruent, or user-set scale for similar
+          const transformScale = activeTool === 'congruent' ? 1 : triangleTransform.scale;
+
+          // Transform the triangle
+          const transformed = transformTriangle(
+            [{ x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }, { x: p3.x, y: p3.y }],
+            transformScale,
+            triangleTransform.rotationDeg,
+            triangleTransform.flip,
+            { x: worldPos.x, y: worldPos.y }
+          );
+
+          // Create new points for the transformed triangle
+          const newP1Id = generateId();
+          const newP2Id = generateId();
+          const newP3Id = generateId();
+
+          addElement({
+            id: newP1Id,
+            type: 'point',
+            name: 'P',
+            x: transformed[0].x,
+            y: transformed[0].y,
+            visible: true,
+            style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
+            dependencies: [],
+            definition: { type: 'free' }
+          });
+
+          addElement({
+            id: newP2Id,
+            type: 'point',
+            name: 'P',
+            x: transformed[1].x,
+            y: transformed[1].y,
+            visible: true,
+            style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
+            dependencies: [],
+            definition: { type: 'free' }
+          });
+
+          addElement({
+            id: newP3Id,
+            type: 'point',
+            name: 'P',
+            x: transformed[2].x,
+            y: transformed[2].y,
+            visible: true,
+            style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
+            dependencies: [],
+            definition: { type: 'free' }
+          });
+
+          // Create the three line segments to form the triangle
+          addElement({
+            id: generateId(),
+            type: 'line',
+            name: 'line',
+            subtype: 'segment',
+            p1: newP1Id,
+            p2: newP2Id,
+            visible: true,
+            style: { stroke: '#000', strokeWidth: 1.5 },
+            dependencies: [newP1Id, newP2Id],
+            definition: { type: 'line_from_points', p1: newP1Id, p2: newP2Id }
+          } as GeoElement);
+
+          addElement({
+            id: generateId(),
+            type: 'line',
+            name: 'line',
+            subtype: 'segment',
+            p1: newP2Id,
+            p2: newP3Id,
+            visible: true,
+            style: { stroke: '#000', strokeWidth: 1.5 },
+            dependencies: [newP2Id, newP3Id],
+            definition: { type: 'line_from_points', p1: newP2Id, p2: newP3Id }
+          } as GeoElement);
+
+          addElement({
+            id: generateId(),
+            type: 'line',
+            name: 'line',
+            subtype: 'segment',
+            p1: newP3Id,
+            p2: newP1Id,
+            visible: true,
+            style: { stroke: '#000', strokeWidth: 1.5 },
+            dependencies: [newP3Id, newP1Id],
+            definition: { type: 'line_from_points', p1: newP3Id, p2: newP1Id }
+          } as GeoElement);
+
+          resetConstruction();
+        }
+      }
+      return;
+    }
+
     if (activeTool === 'point') {
-      if (snapResult.snappedTo) return; // Don't create point on top of existing point
+      // Only prevent creating point on top of existing point
+      // Allow creating at intersections, midpoints, etc.
+      if (snapResult.snapType === 'point') return;
 
       addElement({
         id: generateId(),
         type: 'point',
         name: 'P',
-        x: snapResult.x, // Use snap position (though for point creation it's just mouse pos if not snapped)
+        x: snapResult.x, // Use snap position for intersections/midpoints
         y: snapResult.y,
         visible: true,
-        style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+        style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
         dependencies: [],
         definition: { type: 'free' }
       });
-    } else if (activeTool === 'line' || activeTool === 'vector' || activeTool === 'auxiliary') {
+    } else if (activeTool === 'line' || activeTool === 'straight_line' || activeTool === 'vector' || activeTool === 'auxiliary') {
       // Line, Vector, or Auxiliary: create line segment
       let targetPointId = snapResult.snappedTo;
 
@@ -114,7 +232,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: worldPos.x,
           y: worldPos.y,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
           definition: { type: 'free' }
         });
@@ -133,15 +251,16 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
 
         const isVector = activeTool === 'vector';
         const isAuxiliary = activeTool === 'auxiliary';
+        const isStraightLine = activeTool === 'straight_line';
         addElement({
           id: generateId(),
           type: 'line',
-          subtype: isVector ? 'vector' : 'segment',
-          name: isAuxiliary ? 'aux' : (isVector ? 'v' : 'l'),
+          subtype: isVector ? 'vector' : (isStraightLine ? 'line' : 'segment'),
+          name: isAuxiliary ? 'aux' : (isVector ? 'v' : (isStraightLine ? 'l' : 'seg')),
           visible: true,
           style: {
             stroke: isAuxiliary ? '#9ca3af' : (isVector ? '#dc2626' : '#000'),
-            strokeWidth: isAuxiliary ? 1.5 : 2,
+            strokeWidth: isAuxiliary ? 1 : 1.5,
             dash: isAuxiliary ? [6, 4] : undefined,
           },
           dependencies: [p1Id, p2Id],
@@ -163,7 +282,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: worldPos.x,
           y: worldPos.y,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
           definition: { type: 'free' }
         });
@@ -184,7 +303,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           type: 'circle',
           name: 'c',
           visible: true,
-          style: { stroke: '#000', strokeWidth: 2 },
+          style: { stroke: '#000', strokeWidth: 1.5 },
           dependencies: [centerId, edgeId],
           definition: { type: 'circle_by_points', center: centerId, edge: edgeId },
           center: centerId,
@@ -209,7 +328,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: worldPos.x,
           y: worldPos.y,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
           definition: { type: 'free' }
         });
@@ -232,7 +351,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             type: 'parabola',
             name: 'parabola',
             visible: true,
-            style: { stroke: '#000', strokeWidth: 2 },
+            style: { stroke: '#000', strokeWidth: 1.5 },
             dependencies: [vertexId, focusId],
             definition: { type: 'parabola_by_vertex_focus', vertex: vertexId, focus: focusId }
           } as GeoElement);
@@ -283,7 +402,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             subtype: 'line',
             name: 'directrix',
             visible: true,
-            style: { stroke: '#6b7280', strokeWidth: 1.5, dash: [6, 4] },
+            style: { stroke: '#6b7280', strokeWidth: 1, dash: [6, 4] },
             dependencies: [dirP1Id, dirP2Id],
             definition: { type: 'line_from_points', p1: dirP1Id, p2: dirP2Id },
             p1: dirP1Id,
@@ -295,7 +414,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             type: 'parabola',
             name: 'parabola',
             visible: true,
-            style: { stroke: '#000', strokeWidth: 2 },
+            style: { stroke: '#000', strokeWidth: 1.5 },
             dependencies: [focusId, directrixLineId],
             definition: { type: 'parabola_by_focus_directrix', focus: focusId, directrix: directrixLineId }
           } as GeoElement);
@@ -303,6 +422,24 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           resetConstruction();
         }
       }
+    } else if (activeTool === 'text') {
+      const id = generateId();
+      addElement({
+        id,
+        type: 'text',
+        name: '文本',
+        visible: true,
+        style: { stroke: '#111827', strokeWidth: 1 },
+        dependencies: [],
+        definition: { type: 'free' },
+        x: worldPos.x,
+        y: worldPos.y,
+        content: '文本',
+        fontSize: 16,
+      } as GeoElement);
+      useToolStore.getState().setSelectedId(id);
+      useGeoStore.getState().setSelection([id]);
+      useToolStore.getState().setActiveTool('select');
     } else if (activeTool === 'measure_length') {
       let targetPointId = snapResult.snappedTo;
 
@@ -315,7 +452,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: worldPos.x,
           y: worldPos.y,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
           definition: { type: 'free' }
         });
@@ -356,7 +493,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: worldPos.x,
           y: worldPos.y,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
           definition: { type: 'free' }
         });
@@ -384,7 +521,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           type: 'angle',
           name: 'angle',
           visible: true,
-          style: { stroke: 'orange', strokeWidth: 2, fill: 'rgba(255, 165, 0, 0.2)' },
+          style: { stroke: 'orange', strokeWidth: 1.5, fill: 'rgba(255, 165, 0, 0.2)' },
           dependencies: [p1Id, vertexId, p2Id],
           definition: { type: 'angle_3points', p1: p1Id, vertex: vertexId, p2: p2Id },
           p1: p1Id,
@@ -408,7 +545,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: snapResult.x,
           y: snapResult.y,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
           definition: { type: 'free' }
         });
@@ -425,6 +562,13 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
         const cx = snapResult.x;
         const cy = snapResult.y;
 
+        // Generate a unique group ID for this rectangle
+        const rectGroupId = `rect_${generateId()}`;
+
+        // Update corner A with the group ID
+        const { updateElement } = useGeoStore.getState();
+        updateElement(cornerAId, { groupId: rectGroupId });
+
         // Create corners B, C, D (A is already created)
         // Rectangle corners: A(ax,ay), B(cx,ay), C(cx,cy), D(ax,cy)
         const cornerBId = generateId();
@@ -438,9 +582,10 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: cx,
           y: ay,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
-          definition: { type: 'free' }
+          definition: { type: 'free' },
+          groupId: rectGroupId
         });
 
         addElement({
@@ -450,9 +595,10 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: cx,
           y: cy,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
-          definition: { type: 'free' }
+          definition: { type: 'free' },
+          groupId: rectGroupId
         });
 
         addElement({
@@ -462,9 +608,10 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: ax,
           y: cy,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
-          definition: { type: 'free' }
+          definition: { type: 'free' },
+          groupId: rectGroupId
         });
 
         // Create 4 line segments: AB, BC, CD, DA
@@ -482,11 +629,81 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             subtype: 'segment',
             name: 'l',
             visible: true,
-            style: { stroke: '#000', strokeWidth: 2 },
+            style: { stroke: '#000', strokeWidth: 1.5 },
             dependencies: [p1Id, p2Id],
             definition: { type: 'line_from_points', p1: p1Id, p2: p2Id },
             p1: p1Id,
-            p2: p2Id
+            p2: p2Id,
+            groupId: rectGroupId
+          });
+        }
+
+        resetConstruction();
+      }
+    } else if (activeTool === 'triangle') {
+      // Triangle: 3 clicks define 3 vertices
+      const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
+
+      let targetPointId = snapResult.snappedTo;
+
+      if (!targetPointId) {
+        targetPointId = generateId();
+        addElement({
+          id: targetPointId,
+          type: 'point',
+          name: 'P',
+          x: snapResult.x,
+          y: snapResult.y,
+          visible: true,
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
+          dependencies: [],
+          definition: { type: 'free' }
+        });
+      }
+
+      if (constructionStep < 2) {
+        addTempId(targetPointId);
+        setConstructionStep(constructionStep + 1);
+      } else if (constructionStep === 2) {
+        // We have 3 points now, create 3 line segments
+        const p1Id = tempIds[0];
+        const p2Id = tempIds[1];
+        const p3Id = targetPointId;
+
+        if (p1Id === p3Id || p2Id === p3Id || p1Id === p2Id) {
+          resetConstruction();
+          return;
+        }
+
+        // Generate a unique group ID for this triangle
+        const triangleGroupId = `triangle_${generateId()}`;
+
+        // Update all 3 vertices with the group ID
+        const { updateElement } = useGeoStore.getState();
+        updateElement(p1Id, { groupId: triangleGroupId });
+        updateElement(p2Id, { groupId: triangleGroupId });
+        updateElement(p3Id, { groupId: triangleGroupId });
+
+        // Create 3 line segments with the same group ID
+        const sides = [
+          [p1Id, p2Id],
+          [p2Id, p3Id],
+          [p3Id, p1Id],
+        ];
+
+        for (const [pAId, pBId] of sides) {
+          addElement({
+            id: generateId(),
+            type: 'line',
+            subtype: 'segment',
+            name: 'l',
+            visible: true,
+            style: { stroke: '#000', strokeWidth: 1.5 },
+            dependencies: [pAId, pBId],
+            definition: { type: 'line_from_points', p1: pAId, p2: pBId },
+            p1: pAId,
+            p2: pBId,
+            groupId: triangleGroupId
           });
         }
 
@@ -505,7 +722,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: worldPos.x,
           y: worldPos.y,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
           definition: { type: 'free' }
         });
@@ -550,9 +767,9 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             x: incenter.x,
             y: incenter.y,
             visible: true,
-            style: { stroke: '#dc2626', strokeWidth: 2, fill: '#ef4444' },
+            style: { stroke: '#dc2626', strokeWidth: 1.5, fill: '#ef4444' },
             dependencies: [p1Id, p2Id, p3Id],
-            definition: { type: 'free' }
+            definition: { type: 'incenter', p1: p1Id, p2: p2Id, p3: p3Id }
           });
 
           // Create incircle edge point (at distance = inradius from incenter)
@@ -564,9 +781,9 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             x: incenter.x + incenter.inradius,
             y: incenter.y,
             visible: false,
-            style: { stroke: '#dc2626', strokeWidth: 2, fill: '#ef4444' },
-            dependencies: [incenterPointId],
-            definition: { type: 'free' }
+            style: { stroke: '#dc2626', strokeWidth: 1.5, fill: '#ef4444' },
+            dependencies: [incenterPointId, p1Id, p2Id, p3Id],
+            definition: { type: 'incircle_edge', incenter: incenterPointId, p1: p1Id, p2: p2Id, p3: p3Id }
           });
 
           // Create incircle
@@ -575,7 +792,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             type: 'circle',
             name: 'incircle',
             visible: true,
-            style: { stroke: '#dc2626', strokeWidth: 1.5, dash: [5, 3] },
+            style: { stroke: '#dc2626', strokeWidth: 1, dash: [5, 3] },
             dependencies: [incenterPointId, edgePointId],
             definition: { type: 'circle_by_points', center: incenterPointId, edge: edgePointId },
             center: incenterPointId,
@@ -594,9 +811,9 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             x: circumcenter.x,
             y: circumcenter.y,
             visible: true,
-            style: { stroke: '#7c3aed', strokeWidth: 2, fill: '#8b5cf6' },
+            style: { stroke: '#7c3aed', strokeWidth: 1.5, fill: '#8b5cf6' },
             dependencies: [p1Id, p2Id, p3Id],
-            definition: { type: 'free' }
+            definition: { type: 'circumcenter', p1: p1Id, p2: p2Id, p3: p3Id }
           });
 
           // Create circumcircle (use p1 as edge point since all vertices are on the circle)
@@ -605,7 +822,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             type: 'circle',
             name: 'circumcircle',
             visible: true,
-            style: { stroke: '#7c3aed', strokeWidth: 1.5, dash: [5, 3] },
+            style: { stroke: '#7c3aed', strokeWidth: 1, dash: [5, 3] },
             dependencies: [circumcenterPointId, p1Id],
             definition: { type: 'circle_by_points', center: circumcenterPointId, edge: p1Id },
             center: circumcenterPointId,
@@ -628,7 +845,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           x: worldPos.x,
           y: worldPos.y,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
           definition: { type: 'free' }
         });
@@ -698,7 +915,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             type: 'ellipse',
             name: `椭圆`,
             visible: true,
-            style: { stroke: '#000', strokeWidth: 2 },
+            style: { stroke: '#000', strokeWidth: 1.5 },
             dependencies: [p1Id, p2Id, p3Id],
             centerX,
             centerY,
@@ -744,7 +961,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
             type: 'ellipse',
             name: `椭圆`,
             visible: true,
-            style: { stroke: '#000', strokeWidth: 2 },
+            style: { stroke: '#000', strokeWidth: 1.5 },
             dependencies: [p1Id, p2Id, p3Id],
             centerX,
             centerY,
@@ -782,7 +999,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
   // Get cursor style based on tool and hover state
   const getCursorStyle = (): string => {
     // Drawing tools use crosshair
-    const drawingTools = ['point', 'line', 'vector', 'circle', 'rectangle', 'arc', 'auxiliary', 'ellipse', 'parabola'];
+    const drawingTools = ['point', 'line', 'vector', 'circle', 'rectangle', 'triangle', 'arc', 'auxiliary', 'ellipse', 'parabola', 'hyperbola', 'text'];
     if (drawingTools.includes(activeTool)) {
       return 'crosshair';
     }
@@ -814,6 +1031,14 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
       onTap={handleStageClick}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      onContextMenu={(e) => {
+        e.evt.preventDefault();
+        if (e.target === e.target.getStage()) {
+          const stage = e.target.getStage();
+          const pointer = stage?.getPointerPosition();
+          if (pointer) useViewStore.getState().openContextMenu(null, pointer.x, pointer.y);
+        }
+      }}
       scaleX={scale}
       scaleY={scale}
       x={position.x}
@@ -824,6 +1049,7 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
       <Grid width={size.width} height={size.height} />
       <GeoLayer />
       <EllipsePreviewLayer mousePosition={localMousePos} />
+      <SnapPreviewLayer mousePosition={localMousePos} />
     </Stage>
   );
 });

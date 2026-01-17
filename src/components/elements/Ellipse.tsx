@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Ellipse as KonvaEllipse } from 'react-konva';
-import type { EllipseElement } from '../../types/geoElements';
+import type { EllipseElement, PointElement } from '../../types/geoElements';
 import { useViewStore } from '../../store/viewStore';
 import { useGeoStore } from '../../store/geoStore';
 import { useToolStore } from '../../store/toolStore';
@@ -14,13 +14,24 @@ interface EllipseProps {
 export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
     // All hooks MUST be called before any early returns
     const { scale } = useViewStore();
+    const examMode = useViewStore((state) => state.examMode);
     const showHiddenElements = useViewStore((state) => state.showHiddenElements);
     const hoveredId = useViewStore((state) => state.hoveredId);
     const setHoveredId = useViewStore((state) => state.setHoveredId);
     const activeTool = useToolStore((state) => state.activeTool);
     const updateElement = useGeoStore((state) => state.updateElement);
+    const getElementById = useGeoStore((state) => state.getElementById);
     const selection = useGeoStore((state) => state.selection);
-    const dragStartRef = useRef<{ centerX: number; centerY: number } | null>(null);
+
+    // Store initial positions for drag
+    const dragStartRef = useRef<{
+        centerX: number;
+        centerY: number;
+        pixelX: number;
+        pixelY: number;
+        // Store initial positions of dependency points
+        depPoints: { id: string; x: number; y: number }[];
+    } | null>(null);
 
     // Handle visibility - if hidden and not in preview mode, don't render
     const isHidden = element.visible === false;
@@ -41,13 +52,14 @@ export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
     const radiusXPixel = element.a * PIXELS_PER_UNIT;
     const radiusYPixel = element.b * PIXELS_PER_UNIT;
 
-    // Determine stroke color: selected -> blue, hovered -> orange
+    // Determine stroke color: user color takes priority, selection shown via shadow
     const getStrokeColor = () => {
-        if (isSelected) return '#3b82f6';
-        if (isHovered) return '#f59e0b';
+        // User-defined color takes priority (selection indicated by shadow instead)
         if (element.style.stroke && element.style.stroke !== '#000') {
             return element.style.stroke;
         }
+        if (isHovered) return '#f59e0b';
+        if (examMode) return '#111827';
         return darkTheme ? '#e5e7eb' : '#000';
     };
 
@@ -57,7 +69,24 @@ export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
             e.target.y(centerYPixel);
             return;
         }
-        dragStartRef.current = { centerX: element.centerX, centerY: element.centerY };
+
+        // Get initial positions of all dependency points
+        const depPoints: { id: string; x: number; y: number }[] = [];
+        for (const depId of element.dependencies) {
+            const depEl = getElementById(depId);
+            if (depEl && depEl.type === 'point') {
+                const point = depEl as PointElement;
+                depPoints.push({ id: depId, x: point.x, y: point.y });
+            }
+        }
+
+        dragStartRef.current = {
+            centerX: element.centerX,
+            centerY: element.centerY,
+            pixelX: centerXPixel,
+            pixelY: centerYPixel,
+            depPoints
+        };
     };
 
     const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
@@ -66,14 +95,28 @@ export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
             e.target.y(centerYPixel);
             return;
         }
-        // Calculate delta in math coordinates (flip Y back)
-        const dx = (e.target.x() - centerXPixel) / PIXELS_PER_UNIT;
-        const dy = -(e.target.y() - centerYPixel) / PIXELS_PER_UNIT;
 
+        // Calculate delta in PIXEL coordinates
+        const dxPixel = e.target.x() - dragStartRef.current.pixelX;
+        const dyPixel = e.target.y() - dragStartRef.current.pixelY;
+
+        // Convert to math coordinates for center update
+        const dxMath = dxPixel / PIXELS_PER_UNIT;
+        const dyMath = -dyPixel / PIXELS_PER_UNIT;
+
+        // Update ellipse center
         updateElement(element.id, {
-            centerX: dragStartRef.current.centerX + dx,
-            centerY: dragStartRef.current.centerY + dy
+            centerX: dragStartRef.current.centerX + dxMath,
+            centerY: dragStartRef.current.centerY + dyMath
         });
+
+        // Update all dependency points (move them by the same delta in pixel coords)
+        for (const dep of dragStartRef.current.depPoints) {
+            updateElement(dep.id, {
+                x: dep.x + dxPixel,
+                y: dep.y + dyPixel
+            });
+        }
     };
 
     const handleDragEnd = () => {
@@ -108,7 +151,7 @@ export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
             radiusY={radiusYPixel}
             rotation={element.rotation * (180 / Math.PI)}
             stroke={getStrokeColor()}
-            strokeWidth={element.style.strokeWidth ? element.style.strokeWidth / scale : 2 / scale}
+            strokeWidth={element.style.strokeWidth ? element.style.strokeWidth / scale : 1.5 / scale}
             dash={element.style.dash ? element.style.dash.map(d => d / scale) : undefined}
             fill={element.style.fill || 'transparent'}
             hitStrokeWidth={10 / scale}
@@ -119,9 +162,16 @@ export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
             onDragEnd={handleDragEnd}
             onClick={handleClick}
             onTap={handleClick}
+            onContextMenu={(e) => {
+                e.evt.preventDefault();
+                const stage = e.target.getStage();
+                const pointer = stage?.getPointerPosition();
+                if (!pointer) return;
+                useViewStore.getState().openContextMenu(element.id, pointer.x, pointer.y);
+            }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            shadowColor={isSelected ? '#3b82f6' : (isHovered ? '#f59e0b' : undefined)}
+            shadowColor={isSelected ? '#dc2626' : (isHovered ? '#f59e0b' : undefined)}
             shadowBlur={isSelected ? 8 : (isHovered ? 6 : 0)}
             shadowEnabled={isSelected || isHovered}
             opacity={isHidden ? 0.4 : 1}

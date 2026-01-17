@@ -16,6 +16,7 @@ export const ConicPanel: React.FC = () => {
     const setParabolaMode = useToolStore((state) => state.setParabolaMode);
     const addElement = useGeoStore((state) => state.addElement);
     const darkTheme = useViewStore((state) => state.darkTheme);
+    const viewSize = useViewStore((state) => state.size);
 
     const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -68,7 +69,7 @@ export const ConicPanel: React.FC = () => {
             type: 'ellipse',
             name: `椭圆`,
             visible: true,
-            style: { stroke: '#000', strokeWidth: 2 },
+            style: { stroke: '#000', strokeWidth: 1.5 },
             dependencies: [],
             centerX,
             centerY,
@@ -89,7 +90,7 @@ export const ConicPanel: React.FC = () => {
                 type: 'parabola',
                 name: `抛物线 (p=${p})`,
                 visible: true,
-                style: { stroke: '#000', strokeWidth: 2 },
+                style: { stroke: '#000', strokeWidth: 1.5 },
                 dependencies: [],
                 vertexX: 0, // At origin
                 vertexY: 0,
@@ -102,12 +103,12 @@ export const ConicPanel: React.FC = () => {
             const a = parseFloat(parabolaGeneralA) || 1;
             const b = parseFloat(parabolaGeneralB) || 0;
             const c = parseFloat(parabolaGeneralC) || 0;
-            
+
             // Calculate vertex and p for standard form display/reference if needed
             // For y = ax^2 + bx + c:
             // Vertex x = -b/(2a), y = c - b^2/(4a)
             // p = 1/(4|a|)
-            
+
             let vertexX = 0, vertexY = 0, p = 0;
             if (parabolaGeneralAxis === 'y') {
                 vertexX = -b / (2 * a);
@@ -124,7 +125,7 @@ export const ConicPanel: React.FC = () => {
                 type: 'parabola',
                 name: `抛物线 (${parabolaGeneralAxis === 'y' ? 'y' : 'x'} = ${a}${parabolaGeneralAxis === 'y' ? 'x' : 'y'}²...)`,
                 visible: true,
-                style: { stroke: '#000', strokeWidth: 2 },
+                style: { stroke: '#000', strokeWidth: 1.5 },
                 dependencies: [],
                 vertexX,
                 vertexY,
@@ -132,7 +133,7 @@ export const ConicPanel: React.FC = () => {
                 // Direction depends on 'a' sign and axis
                 // y=ax^2: a>0 up, a<0 down
                 // x=ay^2: a>0 right, a<0 left
-                direction: parabolaGeneralAxis === 'y' 
+                direction: parabolaGeneralAxis === 'y'
                     ? (a > 0 ? 'up' : 'down')
                     : (a > 0 ? 'right' : 'left'),
                 a, b, c, axis: parabolaGeneralAxis,
@@ -166,7 +167,7 @@ export const ConicPanel: React.FC = () => {
                 x: vPx,
                 y: vPy,
                 visible: true,
-                style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+                style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
                 dependencies: [],
                 definition: { type: 'free' }
             };
@@ -179,7 +180,7 @@ export const ConicPanel: React.FC = () => {
                 x: fPx,
                 y: fPy,
                 visible: true,
-                style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+                style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
                 dependencies: [],
                 definition: { type: 'free' }
             };
@@ -190,7 +191,7 @@ export const ConicPanel: React.FC = () => {
                 type: 'parabola',
                 name: 'parabola',
                 visible: true,
-                style: { stroke: '#000', strokeWidth: 2 },
+                style: { stroke: '#000', strokeWidth: 1.5 },
                 dependencies: [vId, fId],
                 definition: { type: 'parabola_by_vertex_focus', vertex: vId, focus: fId }
             };
@@ -250,7 +251,7 @@ export const ConicPanel: React.FC = () => {
                 x: focusPx,
                 y: focusPy,
                 visible: true,
-                style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+                style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
                 dependencies: [],
                 definition: { type: 'free' }
             };
@@ -263,7 +264,7 @@ export const ConicPanel: React.FC = () => {
                 x: p1m.x,
                 y: p1m.y,
                 visible: false,
-                style: { stroke: '#6b7280', strokeWidth: 2, fill: '#6b7280' },
+                style: { stroke: '#6b7280', strokeWidth: 1.5, fill: '#6b7280' },
                 dependencies: [],
                 definition: { type: 'free' }
             };
@@ -276,7 +277,7 @@ export const ConicPanel: React.FC = () => {
                 x: p2m.x,
                 y: p2m.y,
                 visible: false,
-                style: { stroke: '#6b7280', strokeWidth: 2, fill: '#6b7280' },
+                style: { stroke: '#6b7280', strokeWidth: 1.5, fill: '#6b7280' },
                 dependencies: [],
                 definition: { type: 'free' }
             };
@@ -288,7 +289,7 @@ export const ConicPanel: React.FC = () => {
                 subtype: 'line',
                 name: 'directrix',
                 visible: true,
-                style: { stroke: '#6b7280', strokeWidth: 1.5, dash: [6, 4] },
+                style: { stroke: '#6b7280', strokeWidth: 1, dash: [6, 4] },
                 dependencies: [dP1Id, dP2Id],
                 definition: { type: 'line_from_points', p1: dP1Id, p2: dP2Id },
                 p1: dP1Id,
@@ -301,7 +302,7 @@ export const ConicPanel: React.FC = () => {
                 type: 'parabola',
                 name: 'parabola',
                 visible: true,
-                style: { stroke: '#000', strokeWidth: 2 },
+                style: { stroke: '#000', strokeWidth: 1.5 },
                 dependencies: [focusId, directrixId],
                 definition: { type: 'parabola_by_focus_directrix', focus: focusId, directrix: directrixId }
             };
@@ -322,7 +323,7 @@ export const ConicPanel: React.FC = () => {
             type: 'hyperbola',
             name: '双曲线',
             visible: true,
-            style: { stroke: '#000', strokeWidth: 2 },
+            style: { stroke: '#000', strokeWidth: 1.5 },
             dependencies: [],
             a,
             b,
@@ -345,11 +346,17 @@ export const ConicPanel: React.FC = () => {
 
     const title = activeTool === 'ellipse' ? '椭圆' : activeTool === 'parabola' ? '抛物线' : '双曲线';
 
+    // Position panel to the right of toolbar, vertically centered
+    const panelTop = Math.max(60, viewSize.height / 2 - 150);  // Center vertically, min 60px from top
+
     return (
-        <div className={clsx(
-            "absolute left-4 bottom-14 rounded-lg shadow-lg w-72 z-10",
-            darkTheme ? "bg-gray-800 text-gray-100" : "bg-white text-gray-800"
-        )}>
+        <div
+            className={clsx(
+                "absolute rounded-lg shadow-lg w-72 z-10",
+                darkTheme ? "bg-gray-800 text-gray-100" : "bg-white text-gray-800"
+            )}
+            style={{ left: 90, top: panelTop }}
+        >
             <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
                 className={clsx(
@@ -714,16 +721,16 @@ export const ConicPanel: React.FC = () => {
                                 <div className="space-y-2">
                                     <div className="flex gap-2 items-center text-sm mb-1">
                                         <label className="flex items-center gap-1">
-                                            <input 
-                                                type="radio" 
-                                                checked={parabolaGeneralAxis === 'y'} 
+                                            <input
+                                                type="radio"
+                                                checked={parabolaGeneralAxis === 'y'}
                                                 onChange={() => setParabolaGeneralAxis('y')}
                                             /> y = ...
                                         </label>
                                         <label className="flex items-center gap-1">
-                                            <input 
-                                                type="radio" 
-                                                checked={parabolaGeneralAxis === 'x'} 
+                                            <input
+                                                type="radio"
+                                                checked={parabolaGeneralAxis === 'x'}
                                                 onChange={() => setParabolaGeneralAxis('x')}
                                             /> x = ...
                                         </label>

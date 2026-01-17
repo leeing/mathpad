@@ -31,7 +31,7 @@ export const GeoLayer: React.FC = () => {
   const hyperbolas = Object.values(elements).filter(e => e.type === 'hyperbola') as HyperbolaElement[];
 
   return (
-    <Layer>
+    <Layer id="geo-layer">
       {functions.map(el => <FunctionGraph key={el.id} element={el} />)}
       {ellipses.map(el => <Ellipse key={el.id} element={el} />)}
       {parabolas.map(el => <Parabola key={el.id} element={el} />)}

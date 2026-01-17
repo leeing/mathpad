@@ -44,6 +44,36 @@ export function calculateElement(
                     }
                 }
             }
+        } else if (def.type === 'circumcenter') {
+            const p1 = getElement(def.p1) as PointElement | undefined;
+            const p2 = getElement(def.p2) as PointElement | undefined;
+            const p3 = getElement(def.p3) as PointElement | undefined;
+
+            if (p1 && p2 && p3) {
+                const result = getCircumcenter(p1, p2, p3);
+                return { x: result.x, y: result.y };
+            }
+        } else if (def.type === 'incenter') {
+            const p1 = getElement(def.p1) as PointElement | undefined;
+            const p2 = getElement(def.p2) as PointElement | undefined;
+            const p3 = getElement(def.p3) as PointElement | undefined;
+
+            if (p1 && p2 && p3) {
+                const result = getIncenter(p1, p2, p3);
+                return { x: result.x, y: result.y };
+            }
+        } else if (def.type === 'incircle_edge') {
+            // Calculate incircle edge point: incenter position + inradius (for dynamic circle)
+            const incenterPoint = getElement(def.incenter) as PointElement | undefined;
+            const p1 = getElement(def.p1) as PointElement | undefined;
+            const p2 = getElement(def.p2) as PointElement | undefined;
+            const p3 = getElement(def.p3) as PointElement | undefined;
+
+            if (incenterPoint && p1 && p2 && p3) {
+                const result = getIncenter(p1, p2, p3);
+                // Edge point is at incenter.x + inradius, incenter.y
+                return { x: incenterPoint.x + result.inradius, y: incenterPoint.y };
+            }
         }
     } else if (element.type === 'label') {
         const def = element.definition;

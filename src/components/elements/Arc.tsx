@@ -30,7 +30,7 @@ export const Arc: React.FC<ArcProps> = ({ element }) => {
     let arcAngle = endAngle - startAngle;
     if (arcAngle < 0) arcAngle += 360;
 
-    const strokeWidth = (element.style.strokeWidth || 2) / scale;
+    const strokeWidth = (element.style.strokeWidth || 1.5) / scale;
 
     if (element.isSector) {
         // Sector: filled pie slice

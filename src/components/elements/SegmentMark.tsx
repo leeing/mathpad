@@ -10,6 +10,7 @@ interface SegmentMarkProps {
 
 export const SegmentMark: React.FC<SegmentMarkProps> = ({ element }) => {
     const { scale } = useViewStore();
+    const examMode = useViewStore((state) => state.examMode);
     const getElementById = useGeoStore((state) => state.getElementById);
 
     const line = getElementById(element.lineId) as LineElement | undefined;
@@ -35,7 +36,7 @@ export const SegmentMark: React.FC<SegmentMarkProps> = ({ element }) => {
     const markSize = 8 / scale;
     const spacing = 4 / scale;
     const strokeWidth = (element.style.strokeWidth || 1.5) / scale;
-    const stroke = element.style.stroke || '#000';
+    const stroke = examMode ? '#111827' : (element.style.stroke || '#000');
 
     const renderEqualMarks = (count: number): ReactNode[] => {
         const marks: ReactNode[] = [];

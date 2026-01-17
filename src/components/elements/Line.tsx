@@ -15,13 +15,32 @@ interface LineProps {
 export const Line: React.FC<LineProps> = ({ element }) => {
   // All hooks MUST be called before any early returns
   const { scale, size } = useViewStore();
+  const examMode = useViewStore((state) => state.examMode);
   const showHiddenElements = useViewStore((state) => state.showHiddenElements);
   const hoveredId = useViewStore((state) => state.hoveredId);
   const setHoveredId = useViewStore((state) => state.setHoveredId);
-  const getElementById = useGeoStore((state) => state.getElementById);
+  // Subscribe directly to endpoint elements so Line re-renders when they move
+  const p1 = useGeoStore((state) => state.elements[element.p1]) as PointElement | undefined;
+  const p2 = useGeoStore((state) => state.elements[element.p2]) as PointElement | undefined;
   const updateElement = useGeoStore((state) => state.updateElement);
   const activeTool = useToolStore((state) => state.activeTool);
   const selection = useGeoStore((state) => state.selection);
+
+  // Check if this line is a parabola's directrix - if so, it should not be draggable
+  const isParabolaDirectrix = (): boolean => {
+    const { elements } = useGeoStore.getState();
+    for (const el of Object.values(elements)) {
+      if (el.type === 'parabola' && el.dependencies.includes(element.id)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Determine if this line is draggable
+  const isDraggable = activeTool === 'select' && !isParabolaDirectrix();
+
+  // Track initial positions for drag translation (exactly like Circle)
   const dragStartRef = useRef<{ p1x: number; p1y: number; p2x: number; p2y: number } | null>(null);
 
   // Handle visibility - if hidden and not in preview mode, don't render
@@ -30,12 +49,11 @@ export const Line: React.FC<LineProps> = ({ element }) => {
     return null;
   }
 
-  const p1 = getElementById(element.p1) as PointElement;
-  const p2 = getElementById(element.p2) as PointElement;
-
   if (!p1 || !p2) return null;
 
-  let points = [p1.x, p1.y, p2.x, p2.y];
+  // Use p1 as the position anchor (like Circle uses center)
+  // Points are RELATIVE to p1, so when p1 moves, the line moves with it
+  let relativePoints = [0, 0, p2.x - p1.x, p2.y - p1.y];
 
   if (element.subtype === 'line') {
     const dx = p2.x - p1.x;
@@ -44,16 +62,16 @@ export const Line: React.FC<LineProps> = ({ element }) => {
     if (len > 1e-6) {
       // Extend well beyond the viewport
       const viewDiag = Math.sqrt((size.width / scale) ** 2 + (size.height / scale) ** 2);
-      const extendLen = viewDiag * 3; // 3x diagonal should be enough coverage
+      const extendLen = viewDiag * 3;
 
       const ux = dx / len;
       const uy = dy / len;
 
-      // Center of the segment
-      const cx = (p1.x + p2.x) / 2;
-      const cy = (p1.y + p2.y) / 2;
+      // Center of the segment, relative to p1
+      const cx = dx / 2;
+      const cy = dy / 2;
 
-      points = [
+      relativePoints = [
         cx - ux * extendLen,
         cy - uy * extendLen,
         cx + ux * extendLen,
@@ -62,33 +80,35 @@ export const Line: React.FC<LineProps> = ({ element }) => {
     }
   }
 
-  // Drag handlers for whole-shape translation
+  // Drag handlers - EXACTLY matching Circle pattern
+  // Circle uses x={center.x}, Line uses x={p1.x} - same concept
   const handleDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
     if (activeTool !== 'select') {
-      e.target.x(0);
-      e.target.y(0);
+      e.target.x(p1.x);
+      e.target.y(p1.y);
       return;
     }
-    // Store initial positions
+    // Store initial positions (like Circle stores center.x, center.y, edge.x, edge.y)
     dragStartRef.current = { p1x: p1.x, p1y: p1.y, p2x: p2.x, p2y: p2.y };
   };
 
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     if (activeTool !== 'select' || !dragStartRef.current) {
-      e.target.x(0);
-      e.target.y(0);
+      e.target.x(p1.x);
+      e.target.y(p1.y);
       return;
     }
-    // Calculate delta from group position (which was 0,0 at start)
-    const dx = e.target.x();
-    const dy = e.target.y();
+    // Calculate delta from p1 position (exactly like Circle: dx = e.target.x() - dragStartRef.cx)
+    const dx = e.target.x() - dragStartRef.current.p1x;
+    const dy = e.target.y() - dragStartRef.current.p1y;
 
-    // Update both endpoints
+    // Update both endpoints (like Circle updates center and edge)
     updateElement(element.p1, { x: dragStartRef.current.p1x + dx, y: dragStartRef.current.p1y + dy });
     updateElement(element.p2, { x: dragStartRef.current.p2x + dx, y: dragStartRef.current.p2y + dy });
   };
 
   const handleDragEnd = () => {
+    // Just clear the ref, exactly like Circle does
     dragStartRef.current = null;
   };
 
@@ -115,11 +135,17 @@ export const Line: React.FC<LineProps> = ({ element }) => {
 
     if (activeTool === 'perpendicular') {
       e.cancelBubble = true;
-      const { addTempId, resetConstruction, tempIds } = useToolStore.getState();
+      const { addTempId, resetConstruction, tempIds, setConstructionStep, constructionStep } = useToolStore.getState();
       const { addElement, getElementById } = useGeoStore.getState();
 
-      addTempId(element.id);
+      // Step 1: Select line (just store line id, don't create anything yet)
+      if (constructionStep === 0) {
+        addTempId(element.id);
+        setConstructionStep(1);
+        return;
+      }
 
+      // If step 1 done and clicking on another line, check if we have line + point
       const ids = [...tempIds, element.id];
       const fetchedElements = ids.map(id => getElementById(id)).filter(el => el);
       const lines = fetchedElements.filter(el => el?.type === 'line');
@@ -232,7 +258,7 @@ export const Line: React.FC<LineProps> = ({ element }) => {
           x: (p1.x + p2.x) / 2,
           y: (p1.y + p2.y) / 2,
           visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 2, fill: '#3b82f6' },
+          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [element.p1, element.p2],
           definition: { type: 'midpoint', p1: element.p1, p2: element.p2 }
         });
@@ -267,23 +293,29 @@ export const Line: React.FC<LineProps> = ({ element }) => {
   const handleMouseEnter = () => setHoveredId(element.id);
   const handleMouseLeave = () => setHoveredId(null);
 
-  // Determine stroke color: selected -> blue, hovered -> orange, otherwise use element style
+  // Determine stroke color: user color takes priority, selection shown via shadow
   const getStrokeColor = () => {
-    if (isSelected) return '#3b82f6'; // Blue when selected
-    if (isHovered) return '#f59e0b'; // Orange when hovered
+    // User-defined color takes priority (selection indicated by shadow instead)
     if (element.style.stroke && element.style.stroke !== '#000') {
       return element.style.stroke; // Use custom color if set
+    }
+    if (isHovered) return '#f59e0b'; // Orange when hovered
+    if (examMode) {
+      const isAux = element.name === 'aux' || (Array.isArray(element.style.dash) && element.style.dash.length > 0);
+      return isAux ? '#6b7280' : '#111827';
     }
     return darkTheme ? '#e5e7eb' : '#000'; // Default: white in dark, black in light
   };
 
-  const strokeWidth = element.style.strokeWidth ? element.style.strokeWidth / scale : 2 / scale;
+  const strokeWidth = element.style.strokeWidth ? element.style.strokeWidth / scale : 1.5 / scale;
 
   // Use Arrow component for vector subtype
   if (element.subtype === 'vector') {
     return (
       <Arrow
-        points={points}
+        x={p1.x}
+        y={p1.y}
+        points={relativePoints}
         stroke={getStrokeColor()}
         strokeWidth={strokeWidth}
         fill={getStrokeColor()}
@@ -291,15 +323,22 @@ export const Line: React.FC<LineProps> = ({ element }) => {
         pointerWidth={8 / scale}
         hitStrokeWidth={20 / scale}
         listening={activeTool === 'select'}
-        draggable={activeTool === 'select'}
+        draggable={isDraggable}
         onDragStart={handleDragStart}
         onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
         onClick={handleClick}
         onTap={handleClick}
+        onContextMenu={(e) => {
+          e.evt.preventDefault();
+          const stage = e.target.getStage();
+          const pointer = stage?.getPointerPosition();
+          if (!pointer) return;
+          useViewStore.getState().openContextMenu(element.id, pointer.x, pointer.y);
+        }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        shadowColor={isSelected ? '#3b82f6' : (isHovered ? '#f59e0b' : undefined)}
+        shadowColor={isSelected ? '#dc2626' : (isHovered ? '#f59e0b' : undefined)}
         shadowBlur={isSelected ? 8 : (isHovered ? 6 : 0)}
         shadowEnabled={isSelected || isHovered}
         opacity={isHidden ? 0.4 : 1}
@@ -309,21 +348,30 @@ export const Line: React.FC<LineProps> = ({ element }) => {
 
   return (
     <KonvaLine
-      points={points}
+      x={p1.x}
+      y={p1.y}
+      points={relativePoints}
       stroke={getStrokeColor()}
       strokeWidth={strokeWidth}
       dash={element.style.dash ? element.style.dash.map(d => d / scale) : undefined}
       hitStrokeWidth={20 / scale}
       listening={activeTool === 'select' || activeTool === 'perpendicular' || activeTool === 'parallel' || activeTool === 'midpoint' || activeTool === 'segment_mark'}
-      draggable={activeTool === 'select'}
+      draggable={isDraggable}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
       onClick={handleClick}
       onTap={handleClick}
+      onContextMenu={(e) => {
+        e.evt.preventDefault();
+        const stage = e.target.getStage();
+        const pointer = stage?.getPointerPosition();
+        if (!pointer) return;
+        useViewStore.getState().openContextMenu(element.id, pointer.x, pointer.y);
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      shadowColor={isSelected ? '#3b82f6' : (isHovered ? '#f59e0b' : undefined)}
+      shadowColor={isSelected ? '#dc2626' : (isHovered ? '#f59e0b' : undefined)}
       shadowBlur={isSelected ? 8 : (isHovered ? 6 : 0)}
       shadowEnabled={isSelected || isHovered}
       opacity={isHidden ? 0.4 : 1}

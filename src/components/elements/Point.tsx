@@ -1,6 +1,6 @@
 import React from 'react';
 import { Circle, Text, Group } from 'react-konva';
-import type { PointElement, GeoElement, LineElement } from '../../types/geoElements';
+import type { PointElement, GeoElement, LineElement, EllipseElement, CircleElement } from '../../types/geoElements';
 import { useViewStore } from '../../store/viewStore';
 import { useGeoStore } from '../../store/geoStore';
 import { useToolStore } from '../../store/toolStore';
@@ -16,6 +16,7 @@ interface PointProps {
 export const Point: React.FC<PointProps> = ({ element }) => {
     // All hooks MUST be called before any early returns
     const { scale } = useViewStore();
+    const examMode = useViewStore((state) => state.examMode);
     const showHiddenElements = useViewStore((state) => state.showHiddenElements);
     const hoveredId = useViewStore((state) => state.hoveredId);
     const setHoveredId = useViewStore((state) => state.setHoveredId);
@@ -30,37 +31,71 @@ export const Point: React.FC<PointProps> = ({ element }) => {
         return null;
     }
 
-    // Use custom point radius from style or default to 6
-    const baseRadius = element.style.pointRadius || 6;
+    // Use custom point radius from style or default to 4 (smaller)
+    const baseRadius = element.style.pointRadius || 4;
     const radius = baseRadius / scale;
     const hitRadius = 15 / scale;
 
-    // Find all points connected to this point via line segments (BFS)
-    const findConnectedPoints = (startPointId: string): string[] => {
-        const { elements } = useGeoStore.getState();
-        const visited = new Set<string>();
-        const queue = [startPointId];
+    // Check if this point should NOT be individually draggable:
+    // 1. Points belonging to ellipse or parabola
+    // 2. Points belonging to parabola's directrix line
+    // 3. Points with circumcenter or incenter definition (derived points)
+    const isConstrainedPoint = (): boolean => {
+        const { elements, getElementById } = useGeoStore.getState();
 
-        while (queue.length > 0) {
-            const currentId = queue.shift()!;
-            if (visited.has(currentId)) continue;
-            visited.add(currentId);
-
-            // Find all lines connected to this point
-            Object.values(elements).forEach(el => {
-                if (el.type === 'line') {
-                    const line = el as any;
-                    if (line.p1 === currentId && !visited.has(line.p2)) {
-                        queue.push(line.p2);
-                    }
-                    if (line.p2 === currentId && !visited.has(line.p1)) {
-                        queue.push(line.p1);
-                    }
-                }
-            });
+        // Check 1: Point has circumcenter or incenter definition (derived from triangle vertices)
+        const def = element.definition;
+        if (def.type === 'circumcenter' || def.type === 'incenter') {
+            return true;
         }
 
-        return Array.from(visited);
+        // Check 2: Point is directly in conic's (ellipse/parabola) dependencies
+        for (const el of Object.values(elements)) {
+            if ((el.type === 'ellipse' || el.type === 'parabola') && el.dependencies.includes(element.id)) {
+                return true;
+            }
+        }
+
+        // Check 3: Point belongs to a line that is a parabola's directrix
+        for (const el of Object.values(elements)) {
+            if (el.type === 'parabola') {
+                for (const depId of el.dependencies) {
+                    const depEl = getElementById(depId);
+                    if (depEl && depEl.type === 'line') {
+                        const lineEl = depEl as { p1: string; p2: string };
+                        if (lineEl.p1 === element.id || lineEl.p2 === element.id) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    };
+
+    // Determine if this point is draggable
+    const isDraggable = activeTool === 'select' && !isConstrainedPoint();
+
+    // Find all points in the same group as this point
+    const findGroupPoints = (pointId: string): string[] => {
+        const { elements } = useGeoStore.getState();
+        const currentPoint = elements[pointId];
+
+        // If no groupId, only return this point
+        if (!currentPoint?.groupId) {
+            return [pointId];
+        }
+
+        // Find all points with the same groupId
+        const groupPoints: string[] = [];
+        Object.values(elements).forEach(el => {
+            if (el.type === 'point' && el.groupId === currentPoint.groupId) {
+                groupPoints.push(el.id);
+            }
+        });
+
+        return groupPoints;
     };
 
     const handleDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
@@ -70,12 +105,12 @@ export const Point: React.FC<PointProps> = ({ element }) => {
             return;
         }
 
-        // Find all connected points and store their initial positions
-        const connectedPointIds = findConnectedPoints(element.id);
+        // Find all points in the same group and store their initial positions
+        const groupPointIds = findGroupPoints(element.id);
         const { getElementById } = useGeoStore.getState();
 
         const initialPositions = new Map<string, { x: number; y: number }>();
-        connectedPointIds.forEach(id => {
+        groupPointIds.forEach(id => {
             const pt = getElementById(id) as PointElement;
             if (pt) {
                 initialPositions.set(id, { x: pt.x, y: pt.y });
@@ -98,7 +133,7 @@ export const Point: React.FC<PointProps> = ({ element }) => {
         const dx = e.target.x() - myInitialPos.x;
         const dy = e.target.y() - myInitialPos.y;
 
-        // Move all connected points by the same delta
+        // Move all group points by the same delta
         dragStartRef.current.forEach((initialPos, pointId) => {
             updateElement(pointId, {
                 x: initialPos.x + dx,
@@ -152,7 +187,35 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                     subtype: 'segment',
                     name: 'l',
                     visible: true,
-                    style: { stroke: '#000', strokeWidth: 2 },
+                    style: { stroke: '#000', strokeWidth: 1.5 },
+                    dependencies: [p1Id, p2Id],
+                    definition: { type: 'line_from_points', p1: p1Id, p2: p2Id },
+                    p1: p1Id,
+                    p2: p2Id
+                });
+                resetConstruction();
+            }
+        } else if (activeTool === 'straight_line') {
+            e.cancelBubble = true;
+
+            const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
+            const addElement = useGeoStore.getState().addElement;
+
+            if (constructionStep === 0) {
+                addTempId(element.id);
+                setConstructionStep(1);
+            } else if (constructionStep === 1) {
+                const p1Id = tempIds[0];
+                const p2Id = element.id;
+                if (p1Id === p2Id) return;
+
+                addElement({
+                    id: generateId(),
+                    type: 'line',
+                    subtype: 'line',
+                    name: 'l',
+                    visible: true,
+                    style: { stroke: '#000', strokeWidth: 1.5 },
                     dependencies: [p1Id, p2Id],
                     definition: { type: 'line_from_points', p1: p1Id, p2: p2Id },
                     p1: p1Id,
@@ -180,7 +243,7 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                     subtype: 'vector',
                     name: 'v',
                     visible: true,
-                    style: { stroke: '#dc2626', strokeWidth: 2 },
+                    style: { stroke: '#dc2626', strokeWidth: 1.5 },
                     dependencies: [p1Id, p2Id],
                     definition: { type: 'line_from_points', p1: p1Id, p2: p2Id },
                     p1: p1Id,
@@ -208,7 +271,7 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                     subtype: 'segment',
                     name: 'aux',
                     visible: true,
-                    style: { stroke: '#9ca3af', strokeWidth: 1.5, dash: [6, 4] },
+                    style: { stroke: '#9ca3af', strokeWidth: 1, dash: [6, 4] },
                     dependencies: [p1Id, p2Id],
                     definition: { type: 'line_from_points', p1: p1Id, p2: p2Id },
                     p1: p1Id,
@@ -218,8 +281,14 @@ export const Point: React.FC<PointProps> = ({ element }) => {
             }
         } else if (activeTool === 'perpendicular') {
             e.cancelBubble = true;
-            const { addTempId, resetConstruction, tempIds } = useToolStore.getState();
+            const { addTempId, resetConstruction, tempIds, constructionStep } = useToolStore.getState();
             const { addElement, getElementById } = useGeoStore.getState();
+
+            // Only allow point selection after line is selected (step 1 done)
+            if (constructionStep < 1) {
+                // Line not yet selected, ignore point click
+                return;
+            }
 
             addTempId(element.id);
 
@@ -315,6 +384,70 @@ export const Point: React.FC<PointProps> = ({ element }) => {
 
                 resetConstruction();
             }
+        } else if (activeTool === 'tangent') {
+            // Tangent tool: select point (must be outside circle)
+            e.cancelBubble = true;
+            const { addTempId, resetConstruction, tempIds } = useToolStore.getState();
+            const { addElement, getElementById } = useGeoStore.getState();
+
+            addTempId(element.id);
+
+            const ids = [...tempIds, element.id];
+            const fetchedElements = ids.map(id => getElementById(id)).filter(el => el);
+            const circles = fetchedElements.filter(el => el?.type === 'circle') as CircleElement[];
+            const points = fetchedElements.filter(el => el?.type === 'point') as PointElement[];
+
+            if (circles.length === 1 && points.length === 1) {
+                const circleEl = circles[0];
+                const pointEl = points[0];
+                const centerEl = getElementById(circleEl.center) as PointElement | undefined;
+                const edgeEl = getElementById(circleEl.edge) as PointElement | undefined;
+
+                if (centerEl && edgeEl) {
+                    const radius = Math.sqrt((edgeEl.x - centerEl.x) ** 2 + (edgeEl.y - centerEl.y) ** 2);
+                    const dx = pointEl.x - centerEl.x;
+                    const dy = pointEl.y - centerEl.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    // Point must be outside circle
+                    if (dist > radius + 1) {
+                        const theta = Math.acos(radius / dist);
+                        const baseAngle = Math.atan2(dy, dx);
+
+                        for (const sign of [1, -1]) {
+                            const tangentAngle = baseAngle + sign * theta;
+                            const tx = centerEl.x + radius * Math.cos(tangentAngle);
+                            const ty = centerEl.y + radius * Math.sin(tangentAngle);
+
+                            const tangentPointId = generateId();
+                            addElement({
+                                id: tangentPointId,
+                                type: 'point',
+                                name: 'T',
+                                x: tx, y: ty,
+                                visible: true,
+                                style: { stroke: '#3b82f6', strokeWidth: 1.5 },
+                                dependencies: [circleEl.id, pointEl.id],
+                                definition: { type: 'tangent_point', circleId: circleEl.id, externalPointId: pointEl.id, index: sign === 1 ? 0 : 1 }
+                            });
+
+                            addElement({
+                                id: generateId(),
+                                type: 'line',
+                                subtype: 'segment',
+                                name: 'tangent',
+                                visible: true,
+                                style: { stroke: '#000', strokeWidth: 1 },
+                                dependencies: [pointEl.id, tangentPointId],
+                                definition: { type: 'line_from_points', p1: pointEl.id, p2: tangentPointId },
+                                p1: pointEl.id,
+                                p2: tangentPointId
+                            });
+                        }
+                    }
+                }
+                resetConstruction();
+            }
         } else if (activeTool === 'circle') {
             e.cancelBubble = true;
             const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
@@ -333,7 +466,7 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                     type: 'circle',
                     name: 'c',
                     visible: true,
-                    style: { stroke: '#000', strokeWidth: 2 },
+                    style: { stroke: '#000', strokeWidth: 1.5 },
                     dependencies: [centerId, edgeId],
                     definition: { type: 'circle_by_points', center: centerId, edge: edgeId },
                     center: centerId,
@@ -392,7 +525,7 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                     type: 'angle',
                     name: 'angle',
                     visible: true,
-                    style: { stroke: 'orange', strokeWidth: 2, fill: 'rgba(255, 165, 0, 0.2)' },
+                    style: { stroke: 'orange', strokeWidth: 1.5, fill: 'rgba(255, 165, 0, 0.2)' },
                     dependencies: [p1Id, vertexId, p2Id],
                     definition: { type: 'angle_3points', p1: p1Id, vertex: vertexId, p2: p2Id },
                     p1: p1Id,
@@ -402,15 +535,13 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                 } as GeoElement);
                 resetConstruction();
             }
-        } else if (activeTool === 'verify_triangle') {
+        } else if (activeTool === 'congruent' || activeTool === 'similar') {
+            // Triangle vertex selection for congruent/similar tools
             e.cancelBubble = true;
             const { addTempId, tempIds } = useToolStore.getState();
 
-            if (tempIds.length < 3) {
-                addTempId(element.id);
-            } else {
-                // Already selected 3, maybe reset?
-                useToolStore.getState().resetConstruction();
+            // Only allow selecting up to 3 vertices
+            if (tempIds.length < 3 && !tempIds.includes(element.id)) {
                 addTempId(element.id);
             }
         } else if (activeTool === 'incenter' || activeTool === 'circumcenter') {
@@ -451,9 +582,9 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                         x: incenter.x,
                         y: incenter.y,
                         visible: true,
-                        style: { stroke: '#dc2626', strokeWidth: 2, fill: '#ef4444' },
+                        style: { stroke: '#dc2626', strokeWidth: 1.5, fill: '#ef4444' },
                         dependencies: [p1Id, p2Id, p3Id],
-                        definition: { type: 'free' }
+                        definition: { type: 'incenter', p1: p1Id, p2: p2Id, p3: p3Id }
                     });
 
                     const edgePointId = generateId();
@@ -464,9 +595,9 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                         x: incenter.x + incenter.inradius,
                         y: incenter.y,
                         visible: false,
-                        style: { stroke: '#dc2626', strokeWidth: 2, fill: '#ef4444' },
-                        dependencies: [incenterPointId],
-                        definition: { type: 'free' }
+                        style: { stroke: '#dc2626', strokeWidth: 1.5, fill: '#ef4444' },
+                        dependencies: [incenterPointId, p1Id, p2Id, p3Id],
+                        definition: { type: 'incircle_edge', incenter: incenterPointId, p1: p1Id, p2: p2Id, p3: p3Id }
                     });
 
                     addElement({
@@ -474,7 +605,7 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                         type: 'circle',
                         name: 'incircle',
                         visible: true,
-                        style: { stroke: '#dc2626', strokeWidth: 1.5, dash: [5, 3] },
+                        style: { stroke: '#dc2626', strokeWidth: 1, dash: [5, 3] },
                         dependencies: [incenterPointId, edgePointId],
                         definition: { type: 'circle_by_points', center: incenterPointId, edge: edgePointId },
                         center: incenterPointId,
@@ -491,9 +622,9 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                         x: circumcenter.x,
                         y: circumcenter.y,
                         visible: true,
-                        style: { stroke: '#7c3aed', strokeWidth: 2, fill: '#8b5cf6' },
+                        style: { stroke: '#7c3aed', strokeWidth: 1.5, fill: '#8b5cf6' },
                         dependencies: [p1Id, p2Id, p3Id],
-                        definition: { type: 'free' }
+                        definition: { type: 'circumcenter', p1: p1Id, p2: p2Id, p3: p3Id }
                     });
 
                     addElement({
@@ -501,7 +632,7 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                         type: 'circle',
                         name: 'circumcircle',
                         visible: true,
-                        style: { stroke: '#7c3aed', strokeWidth: 1.5, dash: [5, 3] },
+                        style: { stroke: '#7c3aed', strokeWidth: 1, dash: [5, 3] },
                         dependencies: [circumcenterPointId, p1Id],
                         definition: { type: 'circle_by_points', center: circumcenterPointId, edge: p1Id },
                         center: circumcenterPointId,
@@ -564,16 +695,17 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                     const dy = p2.y - p1.y;  // NO Y flip - Konva expects screen angle
                     const rotation = Math.atan2(dy, dx);
 
-                    addElement({
+                    const ellipseEl: EllipseElement = {
                         id: generateId(),
                         type: 'ellipse',
                         name: '椭圆',
                         visible: true,
-                        style: { stroke: '#000', strokeWidth: 2 },
+                        style: { stroke: '#000', strokeWidth: 1.5 },
                         dependencies: [p1Id, p2Id, p3Id],
                         centerX, centerY, a, b, rotation,
                         definition: { type: 'ellipse_by_foci', f1: p1Id, f2: p2Id, pointOn: p3Id }
-                    } as any);
+                    };
+                    addElement(ellipseEl);
                 } else if (ellipseMode === 'center') {
                     // Center in math coordinates
                     const centerX = p1.x / PIXELS_PER_UNIT;
@@ -601,16 +733,247 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                     const bPixels = Math.abs(p3ToCenter.x * vx + p3ToCenter.y * vy);
                     const b = bPixels / PIXELS_PER_UNIT;
 
-                    addElement({
+                    const ellipseEl: EllipseElement = {
                         id: generateId(),
                         type: 'ellipse',
                         name: '椭圆',
                         visible: true,
-                        style: { stroke: '#000', strokeWidth: 2 },
+                        style: { stroke: '#000', strokeWidth: 1.5 },
                         dependencies: [p1Id, p2Id, p3Id],
                         centerX, centerY, a, b, rotation,
                         definition: { type: 'ellipse_by_center_axes', center: p1Id, majorEnd: p2Id, minorEnd: p3Id }
-                    } as any);
+                    };
+                    addElement(ellipseEl);
+                }
+
+                resetConstruction();
+            }
+        } else if (activeTool === 'parabola') {
+            const parabolaMode = useToolStore.getState().parabolaMode;
+            if (parabolaMode === 'equation' || parabolaMode === 'general_equation') return;
+
+            e.cancelBubble = true;
+            const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
+            const { addElement, getElementById } = useGeoStore.getState();
+
+            if (parabolaMode === 'vertex_focus') {
+                if (constructionStep === 0) {
+                    addTempId(element.id);
+                    setConstructionStep(1);
+                } else if (constructionStep === 1) {
+                    const vertexId = tempIds[0];
+                    const focusId = element.id;
+
+                    if (vertexId === focusId) return;
+
+                    addElement({
+                        id: generateId(),
+                        type: 'parabola',
+                        name: 'parabola',
+                        visible: true,
+                        style: { stroke: '#000', strokeWidth: 1.5 },
+                        dependencies: [vertexId, focusId],
+                        definition: { type: 'parabola_by_vertex_focus', vertex: vertexId, focus: focusId }
+                    } as GeoElement);
+
+                    resetConstruction();
+                }
+            } else if (parabolaMode === 'focus_directrix') {
+                if (constructionStep === 0) {
+                    addTempId(element.id);
+                    setConstructionStep(1);
+                } else if (constructionStep === 1) {
+                    addTempId(element.id);
+                    setConstructionStep(2);
+                } else if (constructionStep === 2) {
+                    const focusId = tempIds[0];
+                    const dirP1Id = tempIds[1];
+                    const dirP2Id = element.id;
+
+                    if (dirP1Id === dirP2Id) return;
+
+                    const focus = getElementById(focusId);
+                    const dp1 = getElementById(dirP1Id);
+                    const dp2 = getElementById(dirP2Id);
+                    if (!focus || !dp1 || !dp2 || focus.type !== 'point' || dp1.type !== 'point' || dp2.type !== 'point') {
+                        resetConstruction();
+                        return;
+                    }
+
+                    const dx = dp2.x - dp1.x;
+                    const dy = dp2.y - dp1.y;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    if (len < 1) {
+                        resetConstruction();
+                        return;
+                    }
+                    const nx = -dy / len;
+                    const ny = dx / len;
+                    const dist = Math.abs((focus.x - dp1.x) * nx + (focus.y - dp1.y) * ny);
+                    if (dist < 1) {
+                        resetConstruction();
+                        return;
+                    }
+
+                    const directrixLineId = generateId();
+                    addElement({
+                        id: directrixLineId,
+                        type: 'line',
+                        subtype: 'line',
+                        name: 'directrix',
+                        visible: true,
+                        style: { stroke: '#6b7280', strokeWidth: 1, dash: [6, 4] },
+                        dependencies: [dirP1Id, dirP2Id],
+                        definition: { type: 'line_from_points', p1: dirP1Id, p2: dirP2Id },
+                        p1: dirP1Id,
+                        p2: dirP2Id
+                    });
+
+                    addElement({
+                        id: generateId(),
+                        type: 'parabola',
+                        name: 'parabola',
+                        visible: true,
+                        style: { stroke: '#000', strokeWidth: 1.5 },
+                        dependencies: [focusId, directrixLineId],
+                        definition: { type: 'parabola_by_focus_directrix', focus: focusId, directrix: directrixLineId }
+                    } as GeoElement);
+
+                    resetConstruction();
+                }
+            }
+        } else if (activeTool === 'rectangle') {
+            e.cancelBubble = true;
+            const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
+            const { addElement, getElementById, updateElement } = useGeoStore.getState();
+
+            if (constructionStep === 0) {
+                // First click: use this point as corner A
+                addTempId(element.id);
+                setConstructionStep(1);
+            } else if (constructionStep === 1) {
+                // Second click: create 3 more corners and 4 line segments
+                const cornerAId = tempIds[0];
+                const cornerA = getElementById(cornerAId);
+                if (!cornerA || cornerA.type !== 'point') return;
+
+                const ax = cornerA.x;
+                const ay = cornerA.y;
+                const cx = element.x;
+                const cy = element.y;
+
+                // Generate a unique group ID for this rectangle
+                const rectGroupId = `rect_${generateId()}`;
+
+                // Update corner A with the group ID
+                updateElement(cornerAId, { groupId: rectGroupId });
+                // Also add clicked point to the group
+                updateElement(element.id, { groupId: rectGroupId });
+
+                // Create corners B and D (A is first click, C is current click)
+                const cornerBId = generateId();
+                const cornerDId = generateId();
+
+                addElement({
+                    id: cornerBId,
+                    type: 'point',
+                    name: 'P',
+                    x: cx,
+                    y: ay,
+                    visible: true,
+                    style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
+                    dependencies: [],
+                    definition: { type: 'free' },
+                    groupId: rectGroupId
+                });
+
+                addElement({
+                    id: cornerDId,
+                    type: 'point',
+                    name: 'P',
+                    x: ax,
+                    y: cy,
+                    visible: true,
+                    style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
+                    dependencies: [],
+                    definition: { type: 'free' },
+                    groupId: rectGroupId
+                });
+
+                // Create 4 line segments: AB, BC, CD, DA (C is the clicked element)
+                const cornerCId = element.id;
+                const sides = [
+                    [cornerAId, cornerBId],
+                    [cornerBId, cornerCId],
+                    [cornerCId, cornerDId],
+                    [cornerDId, cornerAId],
+                ];
+
+                for (const [p1Id, p2Id] of sides) {
+                    addElement({
+                        id: generateId(),
+                        type: 'line',
+                        subtype: 'segment',
+                        name: 'l',
+                        visible: true,
+                        style: { stroke: '#000', strokeWidth: 1.5 },
+                        dependencies: [p1Id, p2Id],
+                        definition: { type: 'line_from_points', p1: p1Id, p2: p2Id },
+                        p1: p1Id,
+                        p2: p2Id,
+                        groupId: rectGroupId
+                    });
+                }
+
+                resetConstruction();
+            }
+        } else if (activeTool === 'triangle') {
+            e.cancelBubble = true;
+            const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
+            const { addElement, updateElement } = useGeoStore.getState();
+
+            if (constructionStep < 2) {
+                addTempId(element.id);
+                setConstructionStep(constructionStep + 1);
+            } else if (constructionStep === 2) {
+                const p1Id = tempIds[0];
+                const p2Id = tempIds[1];
+                const p3Id = element.id;
+
+                if (p1Id === p3Id || p2Id === p3Id || p1Id === p2Id) {
+                    resetConstruction();
+                    return;
+                }
+
+                // Generate a unique group ID for this triangle
+                const triangleGroupId = `triangle_${generateId()}`;
+
+                // Update all 3 vertices with the group ID
+                updateElement(p1Id, { groupId: triangleGroupId });
+                updateElement(p2Id, { groupId: triangleGroupId });
+                updateElement(p3Id, { groupId: triangleGroupId });
+
+                // Create 3 line segments with the same group ID
+                const sides = [
+                    [p1Id, p2Id],
+                    [p2Id, p3Id],
+                    [p3Id, p1Id],
+                ];
+
+                for (const [pAId, pBId] of sides) {
+                    addElement({
+                        id: generateId(),
+                        type: 'line',
+                        subtype: 'segment',
+                        name: 'l',
+                        visible: true,
+                        style: { stroke: '#000', strokeWidth: 1.5 },
+                        dependencies: [pAId, pBId],
+                        definition: { type: 'line_from_points', p1: pAId, p2: pBId },
+                        p1: pAId,
+                        p2: pBId,
+                        groupId: triangleGroupId
+                    });
                 }
 
                 resetConstruction();
@@ -625,7 +988,7 @@ export const Point: React.FC<PointProps> = ({ element }) => {
     const handleMouseEnter = () => setHoveredId(element.id);
     const handleMouseLeave = () => setHoveredId(null);
 
-    const handleContextMenu = (e: any) => {
+    const handleContextMenu = (e: Konva.KonvaEventObject<PointerEvent>) => {
         e.evt.preventDefault();
         const { openContextMenu } = useViewStore.getState();
         const stage = e.target.getStage();
@@ -641,7 +1004,7 @@ export const Point: React.FC<PointProps> = ({ element }) => {
         <Group
             x={element.x}
             y={element.y}
-            draggable={activeTool === 'select'}
+            draggable={isDraggable}
             onDragMove={handleDragMove}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
@@ -655,10 +1018,10 @@ export const Point: React.FC<PointProps> = ({ element }) => {
             <Circle radius={hitRadius} fill="transparent" />
             <Circle
                 radius={radius}
-                fill={isSelected ? '#60a5fa' : (element.style.fill || '#3b82f6')}
-                stroke={isSelected ? '#2563eb' : (isHovered ? '#f59e0b' : (element.style.stroke || '#2563eb'))}
-                strokeWidth={element.style.strokeWidth ? element.style.strokeWidth / scale : 2 / scale}
-                shadowColor={isSelected ? '#3b82f6' : (isHovered ? '#f59e0b' : undefined)}
+                fill={examMode ? '#ffffff' : (element.style.fill || (isSelected ? '#fca5a5' : '#3b82f6'))}
+                stroke={element.style.stroke || (isSelected ? '#dc2626' : (isHovered ? '#f59e0b' : (examMode ? '#111827' : '#2563eb')))}
+                strokeWidth={element.style.strokeWidth ? element.style.strokeWidth / scale : 1.5 / scale}
+                shadowColor={isSelected ? '#dc2626' : (isHovered ? '#f59e0b' : undefined)}
                 shadowBlur={isSelected ? 10 : (isHovered ? 8 : 0)}
                 shadowEnabled={isSelected || isHovered}
             />
@@ -672,4 +1035,3 @@ export const Point: React.FC<PointProps> = ({ element }) => {
         </Group>
     );
 };
-

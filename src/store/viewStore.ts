@@ -1,4 +1,11 @@
 import { create } from 'zustand';
+import type { FlipType } from '../core/triangleTransform';
+
+interface TriangleTransformSettings {
+  scale: number;
+  rotationDeg: number;
+  flip: FlipType;
+}
 
 interface ViewState {
   scale: number;
@@ -11,8 +18,13 @@ interface ViewState {
   selectedElementY: number | null;
   hoveredId: string | null;
   mousePosition: { x: number; y: number } | null;
-  contextMenu: { elementId: string; x: number; y: number } | null;
-  
+  contextMenu: { elementId: string | null; x: number; y: number } | null;
+  examMode: boolean;
+  suggestionsEnabled: boolean;
+  sidebarCollapsed: boolean;
+  triangleTransform: TriangleTransformSettings;
+  toolPanelY: number;  // Y position for tool option panels
+
   setScale: (scale: number) => void;
   setPosition: (pos: { x: number; y: number }) => void;
   setSize: (size: { width: number; height: number }) => void;
@@ -23,8 +35,14 @@ interface ViewState {
   setSelectedElementY: (y: number | null) => void;
   setHoveredId: (id: string | null) => void;
   setMousePosition: (pos: { x: number; y: number } | null) => void;
-  openContextMenu: (elementId: string, x: number, y: number) => void;
+  openContextMenu: (elementId: string | null, x: number, y: number) => void;
   closeContextMenu: () => void;
+  toggleExamMode: () => void;
+  setExamMode: (enabled: boolean) => void;
+  toggleSuggestionsEnabled: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  setTriangleTransform: (settings: Partial<TriangleTransformSettings>) => void;
+  setToolPanelY: (y: number) => void;
 }
 
 export const useViewStore = create<ViewState>((set) => ({
@@ -39,7 +57,12 @@ export const useViewStore = create<ViewState>((set) => ({
   hoveredId: null,
   mousePosition: null,
   contextMenu: null,
-  
+  examMode: false,
+  suggestionsEnabled: true,
+  sidebarCollapsed: false,
+  triangleTransform: { scale: 1, rotationDeg: 0, flip: 'none' },
+  toolPanelY: 100,  // Default Y position for tool panels
+
   setScale: (scale) => set({ scale }),
   setPosition: (position) => set({ position }),
   setSize: (size) =>
@@ -62,4 +85,12 @@ export const useViewStore = create<ViewState>((set) => ({
   setMousePosition: (mousePosition) => set({ mousePosition }),
   openContextMenu: (elementId, x, y) => set({ contextMenu: { elementId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
+  toggleExamMode: () => set((state) => ({ examMode: !state.examMode })),
+  setExamMode: (examMode) => set({ examMode }),
+  toggleSuggestionsEnabled: () => set((state) => ({ suggestionsEnabled: !state.suggestionsEnabled })),
+  setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
+  setTriangleTransform: (settings) => set((state) => ({
+    triangleTransform: { ...state.triangleTransform, ...settings }
+  })),
+  setToolPanelY: (toolPanelY) => set({ toolPanelY }),
 }));

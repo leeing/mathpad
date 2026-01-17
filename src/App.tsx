@@ -1,14 +1,14 @@
 import { useRef } from 'react';
 import { CanvasStage } from './components/CanvasStage';
 import { Toolbar } from './components/Toolbar';
-import { FunctionPanel } from './components/FunctionPanel';
-import { VerifyPanel } from './components/VerifyPanel';
+import { FormulaInputBar } from './components/FormulaInputBar';
 import { ViewPanel } from './components/ViewPanel';
 import { RightSidebar } from './components/RightSidebar';
 import { FloatingPropertyPanel } from './components/FloatingPropertyPanel';
 import { StatusBar } from './components/StatusBar';
 import { ConicPanel } from './components/ConicPanel';
-import { TemplatePanel } from './components/TemplatePanel';
+import { TriangleTransformPanel } from './components/TriangleTransformPanel';
+import { QuickToolbar } from './components/QuickToolbar';
 import { ContextMenu } from './components/ContextMenu';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useViewStore } from './store/viewStore';
@@ -31,13 +31,13 @@ function App() {
     )}>
       <CanvasStage ref={stageRef} />
       <Toolbar />
-      <FunctionPanel />
+      <FormulaInputBar />
       <ConicPanel />
-      <TemplatePanel />
-      <VerifyPanel />
+      <TriangleTransformPanel />
       <ViewPanel stageRef={stageRef} />
       <RightSidebar />
       <FloatingPropertyPanel />
+      <QuickToolbar />
       <StatusBar />
 
       {/* Context Menu */}
@@ -54,7 +54,5 @@ function App() {
 }
 
 export default App;
-
-
 
 

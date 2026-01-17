@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useToolStore } from '../store/toolStore';
 import { useGeoStore, useTemporalStore } from '../store/geoStore';
+import { useViewStore } from '../store/viewStore';
 
 export function useKeyboardShortcuts() {
     const setActiveTool = useToolStore((state) => state.setActiveTool);
@@ -10,6 +11,14 @@ export function useKeyboardShortcuts() {
     const removeElement = useGeoStore((state) => state.removeElement);
     const selection = useGeoStore((state) => state.selection);
     const setSelection = useGeoStore((state) => state.setSelection);
+    const temporal = useTemporalStore();
+    const setShowGrid = useViewStore((state) => state.setShowGrid);
+    const setShowAxes = useViewStore((state) => state.setShowAxes);
+    const toggleExamMode = useViewStore((state) => state.toggleExamMode);
+    const toggleSuggestionsEnabled = useViewStore((state) => state.toggleSuggestionsEnabled);
+    const setScale = useViewStore((state) => state.setScale);
+    const setPosition = useViewStore((state) => state.setPosition);
+    const size = useViewStore((state) => state.size);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -21,16 +30,14 @@ export function useKeyboardShortcuts() {
             // Undo: Ctrl+Z or Cmd+Z
             if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
                 e.preventDefault();
-                const { undo } = useTemporalStore().getState();
-                undo();
+                temporal.getState().undo();
                 return;
             }
 
             // Redo: Ctrl+Y or Cmd+Shift+Z
             if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
                 e.preventDefault();
-                const { redo } = useTemporalStore().getState();
-                redo();
+                temporal.getState().redo();
                 return;
             }
 
@@ -60,6 +67,25 @@ export function useKeyboardShortcuts() {
                     case 'r':
                         setActiveTool('rectangle');
                         break;
+                    case 't':
+                        setActiveTool('text');
+                        break;
+                    case 'g':
+                        setShowGrid(!useViewStore.getState().showGrid);
+                        break;
+                    case 'x':
+                        setShowAxes(!useViewStore.getState().showAxes);
+                        break;
+                    case 'm':
+                        toggleExamMode();
+                        break;
+                    case 's':
+                        toggleSuggestionsEnabled();
+                        break;
+                    case '0':
+                        setScale(1);
+                        setPosition({ x: size.width / 2, y: size.height / 2 });
+                        break;
                     case 'escape':
                         resetConstruction();
                         setSelectedId(null);
@@ -83,6 +109,5 @@ export function useKeyboardShortcuts() {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [setActiveTool, resetConstruction, selectedId, setSelectedId, removeElement, selection, setSelection]);
+    }, [setActiveTool, resetConstruction, selectedId, setSelectedId, removeElement, selection, setSelection, temporal, setShowGrid, setShowAxes, toggleExamMode, toggleSuggestionsEnabled, setScale, setPosition, size.height, size.width]);
 }
-

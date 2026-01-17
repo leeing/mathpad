@@ -1,17 +1,20 @@
 import { create } from 'zustand';
+import { useGeoStore } from './geoStore';
 
 export type ToolType =
   | 'select'
   | 'point'
   | 'line'
+  | 'straight_line'
   | 'circle'
   | 'rectangle'
+  | 'triangle'
   | 'arc'
   | 'vector'
   | 'ellipse'
   | 'hyperbola'
   | 'parabola'
-  | 'template'       // v0.12.0 - 图形模板
+  | 'function'        // 函数图像
   | 'perpendicular'
   | 'parallel'
   | 'midpoint'
@@ -19,13 +22,12 @@ export type ToolType =
   | 'circumcenter'
   | 'tangent'
   | 'segment_mark'
-  | 'congruent'
-  | 'similar'
   | 'auxiliary'
   | 'text'
   | 'measure_length'
   | 'measure_angle'
-  | 'verify_triangle';
+  | 'congruent'
+  | 'similar';
 
 export type EllipseMode = 'foci' | 'center' | 'equation';
 export type ParabolaMode = 'focus_directrix' | 'vertex_focus' | 'equation' | 'general_equation';
@@ -53,7 +55,11 @@ export const useToolStore = create<ToolState>((set) => ({
   tempIds: [],
   ellipseMode: 'equation',
   parabolaMode: 'equation',
-  setActiveTool: (tool) => set({ activeTool: tool, constructionStep: 0, tempIds: [], selectedId: null }),
+  setActiveTool: (tool) => {
+    // Clear geoStore selection when switching tools
+    useGeoStore.getState().setSelection([]);
+    set({ activeTool: tool, constructionStep: 0, tempIds: [], selectedId: null });
+  },
   setSelectedId: (id) => set({ selectedId: id }),
   setConstructionStep: (step) => set({ constructionStep: step }),
   addTempId: (id) => set((state) => ({ tempIds: [...state.tempIds, id] })),

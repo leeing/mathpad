@@ -19,7 +19,7 @@ export const FunctionPanel: React.FC = () => {
       type: 'function_graph',
       name: `f(x) = ${expression}`,
       visible: true,
-      style: { stroke: '#ef4444', strokeWidth: 2 },
+      style: { stroke: '#ef4444', strokeWidth: 1.5 },
       dependencies: [],
       definition: { type: 'function_expression', expression },
       expression: expression

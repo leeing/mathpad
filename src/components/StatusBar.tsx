@@ -18,15 +18,14 @@ const toolLabels: Record<string, string> = {
     circumcenter: '外心',
     tangent: '切线',
     segment_mark: '边标记',
-    congruent: '全等',
-    similar: '相似',
     measure_length: '测量长度',
     measure_angle: '测量角度',
-    verify_triangle: '验证三角形',
     ellipse: '椭圆',
     parabola: '抛物线',
     hyperbola: '双曲线',
     template: '模板库',
+    congruent: '全等三角形',
+    similar: '相似三角形',
 };
 
 // Construction step hints for multi-step tools
@@ -38,12 +37,13 @@ const constructionStepHints: Record<string, string[]> = {
     auxiliary: ['点击起点', '点击终点'],
     incenter: ['选择第1个顶点', '选择第2个顶点', '选择第3个顶点'],
     circumcenter: ['选择第1个顶点', '选择第2个顶点', '选择第3个顶点'],
-    verify_triangle: ['选择第1个顶点', '选择第2个顶点', '选择第3个顶点'],
     measure_angle: ['选择第1个点', '选择顶点（角的顶点）', '选择第3个点'],
     ellipse_foci: ['点击第1个焦点', '点击第2个焦点', '点击椭圆上一点'],
     ellipse_center: ['点击中心', '点击长轴端点', '点击短轴方向'],
     parabola_focus_directrix: ['点击焦点', '点击准线上一点'],
     parabola_vertex_focus: ['点击顶点', '点击焦点'],
+    congruent: ['选择第1个顶点', '选择第2个顶点', '选择第3个顶点 → 点击画布放置'],
+    similar: ['选择第1个顶点', '选择第2个顶点', '选择第3个顶点 → 点击画布放置'],
 };
 
 const defaultHints: Record<string, string> = {
