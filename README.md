@@ -5,7 +5,7 @@
 [![Version](https://img.shields.io/badge/version-1.0.65-blue.svg)](https://github.com/mathpad)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-MathPad 是一款专为**中国中学数学教师**打造的轻量级平面几何绘图工具，完全覆盖**初中（人教版/北师大版）和高中（新课标）**的平面几何教学需求。帮助教师在 **3 分钟**内完成一道几何大题的配图。
+MathPad 是一款专为**中国中学数学教师**打造的轻量级平面几何绘图工具，完全覆盖初中（人教版/北师大版）和高中（新课标）的平面几何教学需求。帮助教师在 **3 分钟**内完成一道几何大题的配图。
 
 🔗 **在线体验**: [https://math.qadmlee.com](https://math.qadmlee.com)
 
