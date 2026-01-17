@@ -317,15 +317,7 @@ export const Toolbar: React.FC = () => {
                 {group.items.map((tool) => (
                   <button
                     key={tool.id}
-                    onClick={(e) => {
-                      setActiveTool(tool.id);
-                      // Track button Y position for panel placement
-                      const toolsWithPanels = ['ellipse', 'parabola', 'hyperbola', 'congruent', 'similar'];
-                      if (toolsWithPanels.includes(tool.id)) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        useViewStore.getState().setToolPanelY(rect.top);
-                      }
-                    }}
+                    onClick={() => setActiveTool(tool.id)}
                     className={clsx(
                       "p-2 rounded-md transition-colors flex items-center gap-2",
                       activeTool === tool.id

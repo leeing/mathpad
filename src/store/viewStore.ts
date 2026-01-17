@@ -23,7 +23,6 @@ interface ViewState {
   suggestionsEnabled: boolean;
   sidebarCollapsed: boolean;
   triangleTransform: TriangleTransformSettings;
-  toolPanelY: number;  // Y position for tool option panels
 
   setScale: (scale: number) => void;
   setPosition: (pos: { x: number; y: number }) => void;
@@ -42,7 +41,6 @@ interface ViewState {
   toggleSuggestionsEnabled: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setTriangleTransform: (settings: Partial<TriangleTransformSettings>) => void;
-  setToolPanelY: (y: number) => void;
 }
 
 export const useViewStore = create<ViewState>((set) => ({
@@ -52,7 +50,9 @@ export const useViewStore = create<ViewState>((set) => ({
   showGrid: true,
   showAxes: true,
   showHiddenElements: false,
-  darkTheme: false,
+  darkTheme: localStorage.getItem('mathpad-theme') !== null
+    ? localStorage.getItem('mathpad-theme') === 'dark'
+    : true,  // Default to dark mode
   selectedElementY: null,
   hoveredId: null,
   mousePosition: null,
@@ -61,7 +61,6 @@ export const useViewStore = create<ViewState>((set) => ({
   suggestionsEnabled: true,
   sidebarCollapsed: false,
   triangleTransform: { scale: 1, rotationDeg: 0, flip: 'none' },
-  toolPanelY: 100,  // Default Y position for tool panels
 
   setScale: (scale) => set({ scale }),
   setPosition: (position) => set({ position }),
@@ -79,7 +78,11 @@ export const useViewStore = create<ViewState>((set) => ({
   setShowGrid: (showGrid) => set({ showGrid }),
   setShowAxes: (showAxes) => set({ showAxes }),
   toggleShowHiddenElements: () => set((state) => ({ showHiddenElements: !state.showHiddenElements })),
-  toggleDarkTheme: () => set((state) => ({ darkTheme: !state.darkTheme })),
+  toggleDarkTheme: () => set((state) => {
+    const newTheme = !state.darkTheme;
+    localStorage.setItem('mathpad-theme', newTheme ? 'dark' : 'light');
+    return { darkTheme: newTheme };
+  }),
   setSelectedElementY: (y) => set({ selectedElementY: y }),
   setHoveredId: (hoveredId) => set({ hoveredId }),
   setMousePosition: (mousePosition) => set({ mousePosition }),
@@ -92,5 +95,4 @@ export const useViewStore = create<ViewState>((set) => ({
   setTriangleTransform: (settings) => set((state) => ({
     triangleTransform: { ...state.triangleTransform, ...settings }
   })),
-  setToolPanelY: (toolPanelY) => set({ toolPanelY }),
 }));

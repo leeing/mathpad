@@ -9,6 +9,8 @@ const toolLabels: Record<string, string> = {
     vector: '向量',
     circle: '圆',
     rectangle: '矩形',
+    triangle: '三角形',
+    function: '函数图像',
     arc: '弧',
     auxiliary: '辅助线',
     perpendicular: '垂线',
@@ -26,6 +28,8 @@ const toolLabels: Record<string, string> = {
     template: '模板库',
     congruent: '全等三角形',
     similar: '相似三角形',
+    straight_line: '直线',
+    text: '文字注释',
 };
 
 // Construction step hints for multi-step tools
@@ -57,6 +61,12 @@ const defaultHints: Record<string, string> = {
     parabola: '在左下角面板选择定义方式',
     hyperbola: '在左下角面板输入参数，点击“+”创建',
     template: '在左下角选择模板快速创建图形',
+    rectangle: '点击第一个角，再点击对角创建矩形',
+    triangle: '依次点击3个顶点创建三角形',
+    function: '在底部输入框输入函数表达式，按Enter创建',
+    text: '点击画布添加文字注释',
+    straight_line: '点击两个点创建直线',
+    tangent: '选择圆或曲线，再选择切点',
 };
 
 export const StatusBar: React.FC = () => {
