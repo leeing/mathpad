@@ -11,8 +11,28 @@ import {
     ZoomOut,
     RotateCcw,
     Dot,
-    MousePointer2
+    MousePointer2,
+    Circle
 } from 'lucide-react';
+
+// Segment icon (line with endpoints)
+const SegmentIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+    <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+    >
+        <line x1="4" y1="18" x2="20" y2="6" />
+        <circle cx="4" cy="18" r="2" fill="currentColor" />
+        <circle cx="20" cy="6" r="2" fill="currentColor" />
+    </svg>
+);
 
 const PAN_AMOUNT = 50; // pixels to pan per click
 const ZOOM_FACTOR = 1.2; // zoom multiplier
@@ -58,12 +78,14 @@ export const QuickToolbar: React.FC = () => {
         { icon: ZoomOut, label: '缩小', action: () => handleZoom(false) },
         { icon: RotateCcw, label: '视图复位', action: handleReset },
         { icon: Dot, label: '点工具', action: () => setActiveTool('point'), active: activeTool === 'point' },
+        { icon: SegmentIcon, label: '线段', action: () => setActiveTool('line'), active: activeTool === 'line' },
+        { icon: Circle, label: '圆', action: () => setActiveTool('circle'), active: activeTool === 'circle' },
         { icon: MousePointer2, label: '选择工具', action: () => setActiveTool('select'), active: activeTool === 'select' },
     ];
 
     return (
         <div className={clsx(
-            "absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-1 rounded-lg shadow-lg p-1.5 z-20",
+            "fixed left-1/2 -translate-x-1/2 bottom-12 flex gap-1 rounded-lg shadow-lg px-4 py-3 z-20",
             darkTheme ? "bg-gray-800" : "bg-white"
         )}>
             {buttons.map((btn, index) => (
@@ -74,7 +96,7 @@ export const QuickToolbar: React.FC = () => {
                     className={clsx(
                         "p-2 rounded-md transition-colors",
                         btn.active
-                            ? "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300"
+                            ? "bg-blue-100 text-blue-600 dark:bg-gray-700 dark:text-blue-400"
                             : darkTheme
                                 ? "hover:bg-gray-700 text-gray-300"
                                 : "hover:bg-gray-100 text-gray-600"

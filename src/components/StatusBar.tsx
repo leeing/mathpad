@@ -53,7 +53,7 @@ const constructionStepHints: Record<string, string[]> = {
 const defaultHints: Record<string, string> = {
     select: '点击选择元素，拖拽移动点',
     point: '点击创建点',
-    midpoint: '点击线段获取中点',
+    midpoint: '选择两个点，生成中点',
     segment_mark: '点击线段添加标记',
     perpendicular: '选择一条线和一个点',
     parallel: '选择一条线和一个点',

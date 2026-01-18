@@ -33,9 +33,9 @@ export const SnapPreviewLayer: React.FC<SnapPreviewLayerProps> = ({ mousePositio
         15 / scale
     );
 
-    // Only show preview for intersection and midpoint snap types
-    // (existing points already have their own visual)
-    if (snapResult.snapType !== 'intersection' && snapResult.snapType !== 'midpoint') {
+    // Show preview for special snap types (not just plain points)
+    const previewableSnapTypes = ['intersection', 'midpoint', 'on_line', 'on_circle', 'on_function', 'on_ellipse', 'on_parabola', 'on_hyperbola'];
+    if (!snapResult.snapType || !previewableSnapTypes.includes(snapResult.snapType)) {
         return null;
     }
 
@@ -45,6 +45,18 @@ export const SnapPreviewLayer: React.FC<SnapPreviewLayerProps> = ({ mousePositio
                 return '#f59e0b'; // Orange/amber for intersections
             case 'midpoint':
                 return '#10b981'; // Green for midpoints
+            case 'on_line':
+                return '#8b5cf6'; // Purple for on-line
+            case 'on_circle':
+                return '#ec4899'; // Pink for on-circle
+            case 'on_function':
+                return '#ef4444'; // Red for on-function (matches function graph color)
+            case 'on_ellipse':
+                return '#06b6d4'; // Cyan for on-ellipse
+            case 'on_parabola':
+                return '#14b8a6'; // Teal for on-parabola
+            case 'on_hyperbola':
+                return '#f97316'; // Orange for on-hyperbola
             default:
                 return '#3b82f6'; // Blue default
         }

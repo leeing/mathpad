@@ -16,6 +16,7 @@ const isRightAngle = (angleDegrees: number, tolerance: number = 1.5): boolean =>
 export const Angle: React.FC<AngleProps> = ({ element }) => {
   const { scale } = useViewStore();
   const examMode = useViewStore((state) => state.examMode);
+  const darkTheme = useViewStore((state) => state.darkTheme);
   const getElementById = useGeoStore((state) => state.getElementById);
 
   const p1 = getElementById(element.p1) as PointElement;
@@ -60,7 +61,7 @@ export const Angle: React.FC<AngleProps> = ({ element }) => {
       <Group>
         <Line
           points={[p1x, p1y, p2x, p2y, p3x, p3y]}
-          stroke={examMode ? '#111827' : (element.style.stroke || '#000')}
+          stroke={(examMode && !darkTheme) ? '#111827' : (darkTheme ? '#e5e7eb' : (element.style.stroke || '#000'))}
           strokeWidth={(element.style.strokeWidth || 1.5) / scale}
           listening={false}
         />
@@ -78,8 +79,8 @@ export const Angle: React.FC<AngleProps> = ({ element }) => {
         outerRadius={radius}
         angle={angleValue}
         rotation={angle1}
-        fill={examMode ? 'rgba(17, 24, 39, 0.08)' : (element.style.fill || 'rgba(255, 165, 0, 0.2)')}
-        stroke={examMode ? '#111827' : (element.style.stroke || 'orange')}
+        fill={(examMode && !darkTheme) ? 'rgba(17, 24, 39, 0.08)' : (darkTheme ? 'rgba(229, 231, 235, 0.15)' : (element.style.fill || 'rgba(255, 165, 0, 0.2)'))}
+        stroke={(examMode && !darkTheme) ? '#111827' : (darkTheme ? '#e5e7eb' : (element.style.stroke || 'orange'))}
         strokeWidth={element.style.strokeWidth ? element.style.strokeWidth / scale : 1.5 / scale}
         listening={false}
       />
@@ -88,7 +89,7 @@ export const Angle: React.FC<AngleProps> = ({ element }) => {
         x={textX}
         y={textY}
         fontSize={12 / scale}
-        fill={examMode ? '#111827' : '#4b5563'}
+        fill={(examMode && !darkTheme) ? '#111827' : (darkTheme ? '#e5e7eb' : '#4b5563')}
         align="center"
         verticalAlign="middle"
         offsetX={10}

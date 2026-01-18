@@ -10,7 +10,6 @@ import {
   ChevronDown,
   ChevronRight,
   Dot,
-  Crosshair,
   CircleDotDashed,
   Target,
   Hash,
@@ -184,6 +183,50 @@ const DashedLineIcon = ({ size = 24, className = "" }: { size?: number; classNam
   </svg>
 );
 
+// Midpoint icon (line with hollow endpoints and solid midpoint)
+const MidpointIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    {/* Line segment */}
+    <line x1="4" y1="18" x2="20" y2="6" />
+    {/* Hollow endpoints - larger radius, thinner stroke to show hollow clearly */}
+    <circle cx="4" cy="18" r="2.5" fill="none" strokeWidth="1.5" />
+    <circle cx="20" cy="6" r="2.5" fill="none" strokeWidth="1.5" />
+    {/* Solid midpoint - larger for visibility */}
+    <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+// Angle measurement icon (angle arc with two lines)
+const AngleIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    {/* Two lines forming angle */}
+    <line x1="4" y1="20" x2="20" y2="20" />
+    <line x1="4" y1="20" x2="14" y2="6" />
+    {/* Arc for angle */}
+    <path d="M8 20 A 6 6 0 0 1 9.5 14.5" fill="none" />
+  </svg>
+);
+
 // Similar triangles icon (one large, one small triangle)
 const SimilarTrianglesIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
   <svg
@@ -231,11 +274,11 @@ export const Toolbar: React.FC = () => {
         { id: 'auxiliary', icon: DashedLineIcon, label: '辅助线' },
         { id: 'vector', icon: MoveDiagonal, label: '向量', shortcut: 'V' },
         { id: 'circle', icon: Circle, label: '圆 (C)', shortcut: 'C' },
+        { id: 'rectangle', icon: Square, label: '矩形 (R)', shortcut: 'R' },
+        { id: 'triangle', icon: Triangle, label: '三角形 (T)', shortcut: 'T' },
         { id: 'ellipse', icon: EllipseIcon, label: '椭圆', shortcut: 'E' },
         { id: 'parabola', icon: ParabolaIcon, label: '抛物线', shortcut: 'P' },
         { id: 'hyperbola', icon: HyperbolaIcon, label: '双曲线', shortcut: 'H' },
-        { id: 'rectangle', icon: Square, label: '矩形 (R)', shortcut: 'R' },
-        { id: 'triangle', icon: Triangle, label: '三角形 (T)', shortcut: 'T' },
       ]
     },
     // Construction
@@ -247,7 +290,7 @@ export const Toolbar: React.FC = () => {
         { id: 'perpendicular', icon: PerpendicularIcon, label: '垂线' },
         { id: 'parallel', icon: ParallelIcon, label: '平行线' },
         { id: 'tangent', icon: TangentIcon, label: '切线' },
-        { id: 'midpoint', icon: Crosshair, label: '中点' },
+        { id: 'midpoint', icon: MidpointIcon, label: '中点' },
         { id: 'congruent', icon: Scale, label: '全等三角形' },
         { id: 'similar', icon: SimilarTrianglesIcon, label: '相似三角形' },
         { id: 'incenter', icon: CircleDotDashed, label: '内心+内切圆' },
@@ -262,7 +305,7 @@ export const Toolbar: React.FC = () => {
         { id: 'segment_mark', icon: Hash, label: '边标记' },
         { id: 'text', icon: Type, label: '文字注释' },
         { id: 'measure_length', icon: Ruler, label: '测量长度' },
-        { id: 'measure_angle', icon: Triangle, label: '测量角度' },
+        { id: 'measure_angle', icon: AngleIcon, label: '测量角度' },
       ]
     },
   ];
@@ -321,7 +364,7 @@ export const Toolbar: React.FC = () => {
                     className={clsx(
                       "p-2 rounded-md transition-colors flex items-center gap-2",
                       activeTool === tool.id
-                        ? "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300"
+                        ? "bg-blue-100 text-blue-600 dark:bg-gray-700 dark:text-blue-400"
                         : darkTheme
                           ? "hover:bg-gray-700 text-gray-300"
                           : "hover:bg-gray-100 text-gray-600"

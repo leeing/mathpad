@@ -49,8 +49,10 @@ export const Hyperbola: React.FC<HyperbolaProps> = ({ element }) => {
 
   if (branch1.length === 0 && branch2.length === 0) return null;
 
+  const darkTheme = useViewStore.getState().darkTheme;
   const isSelected = selectedId === element.id;
-  const stroke = element.style.stroke || (examMode ? '#111827' : (isSelected ? '#dc2626' : '#000'));
+  // In dark mode, skip examMode colors to keep elements visible
+  const stroke = element.style.stroke || ((examMode && !darkTheme) ? '#111827' : (isSelected ? '#dc2626' : (darkTheme ? '#e5e7eb' : '#000')));
   const strokeWidth = element.style.strokeWidth / scale;
   const dash = element.style.dash ? element.style.dash.map((d) => d / scale) : undefined;
 

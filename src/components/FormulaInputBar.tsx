@@ -232,6 +232,23 @@ export const FormulaInputBar: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Close button - return to default toolbar */}
+            <button
+                onClick={() => setActiveTool('select')}
+                className={clsx(
+                    "rounded-full p-2 transition-colors ml-2",
+                    darkTheme
+                        ? "hover:bg-gray-700 text-gray-400 hover:text-gray-200"
+                        : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+                )}
+                title="返回"
+            >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
         </div>
     );
 };

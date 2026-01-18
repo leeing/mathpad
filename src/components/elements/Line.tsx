@@ -240,30 +240,6 @@ export const Line: React.FC<LineProps> = ({ element }) => {
 
         resetConstruction();
       }
-    } else if (activeTool === 'midpoint') {
-      // For midpoint, clicking on a line segment creates its midpoint
-      e.cancelBubble = true;
-      const { resetConstruction } = useToolStore.getState();
-      const { addElement, getElementById } = useGeoStore.getState();
-
-      // Create midpoint of this line segment
-      const p1 = getElementById(element.p1) as PointElement | undefined;
-      const p2 = getElementById(element.p2) as PointElement | undefined;
-
-      if (p1 && p2 && element.subtype === 'segment') {
-        addElement({
-          id: generateId(),
-          type: 'point',
-          name: 'M',
-          x: (p1.x + p2.x) / 2,
-          y: (p1.y + p2.y) / 2,
-          visible: true,
-          style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
-          dependencies: [element.p1, element.p2],
-          definition: { type: 'midpoint', p1: element.p1, p2: element.p2 }
-        });
-        resetConstruction();
-      }
     } else if (activeTool === 'segment_mark') {
       e.cancelBubble = true;
       const { resetConstruction } = useToolStore.getState();
@@ -300,7 +276,8 @@ export const Line: React.FC<LineProps> = ({ element }) => {
       return element.style.stroke; // Use custom color if set
     }
     if (isHovered) return '#f59e0b'; // Orange when hovered
-    if (examMode) {
+    // In dark mode, skip examMode colors to keep elements visible
+    if (examMode && !darkTheme) {
       const isAux = element.name === 'aux' || (Array.isArray(element.style.dash) && element.style.dash.length > 0);
       return isAux ? '#6b7280' : '#111827';
     }
@@ -355,7 +332,7 @@ export const Line: React.FC<LineProps> = ({ element }) => {
       strokeWidth={strokeWidth}
       dash={element.style.dash ? element.style.dash.map(d => d / scale) : undefined}
       hitStrokeWidth={20 / scale}
-      listening={activeTool === 'select' || activeTool === 'perpendicular' || activeTool === 'parallel' || activeTool === 'midpoint' || activeTool === 'segment_mark'}
+      listening={activeTool === 'select' || activeTool === 'perpendicular' || activeTool === 'parallel' || activeTool === 'segment_mark'}
       draggable={isDraggable}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}

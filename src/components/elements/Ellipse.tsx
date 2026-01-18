@@ -59,7 +59,8 @@ export const Ellipse: React.FC<EllipseProps> = ({ element }) => {
             return element.style.stroke;
         }
         if (isHovered) return '#f59e0b';
-        if (examMode) return '#111827';
+        // In dark mode, skip examMode colors to keep elements visible
+        if (examMode && !darkTheme) return '#111827';
         return darkTheme ? '#e5e7eb' : '#000';
     };
 

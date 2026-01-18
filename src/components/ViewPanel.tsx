@@ -10,18 +10,10 @@ interface ViewPanelProps {
   stageRef: React.RefObject<Konva.Stage | null>;
 }
 
-const pngPresets = [
-  { label: '原始尺寸', width: 0 },
-  { label: '单栏 (300px)', width: 300 },
-  { label: '双栏 (150px)', width: 150 },
-  { label: '全宽 (600px)', width: 600 },
-];
-
 export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
   const { showGrid, showAxes, setShowGrid, setShowAxes, darkTheme, toggleDarkTheme, examMode, toggleExamMode, setExamMode, setSidebarCollapsed } = useViewStore();
   const { elements, clearAll, loadElements, setSelection } = useGeoStore();
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [showPngOptions, setShowPngOptions] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getTimestamp = () => {
@@ -56,7 +48,6 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
       downloadDataUrl(uri, `几何图形-${getTimestamp()}.png`);
     }
     setShowExportMenu(false);
-    setShowPngOptions(false);
   };
 
   const waitNextPaint = async () => {
@@ -88,7 +79,6 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
   const handleExportCroppedExamPng = async () => {
     if (!stageRef.current) return;
     setShowExportMenu(false);
-    setShowPngOptions(false);
 
     const dataUrl = await withTempView({ showGrid: false, examMode: true, clearSelection: true }, async () => {
       return await exportCroppedPng(stageRef.current!, {
@@ -106,7 +96,6 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
   const handleExportAnswerSheetA4 = async () => {
     if (!stageRef.current) return;
     setShowExportMenu(false);
-    setShowPngOptions(false);
 
     const a4 = { w: 2480, h: 3508 }; // 300dpi
     const dataUrl = await withTempView({ showGrid: true, showAxes: true, examMode: true, clearSelection: true }, async () => {
@@ -201,8 +190,8 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
         <button
           onClick={() => setShowGrid(!showGrid)}
           className={clsx(
-            "p-2 rounded hover:bg-gray-100",
-            showGrid ? "bg-blue-100 text-blue-600" : "text-gray-600"
+            "p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
+            showGrid ? "bg-blue-100 text-blue-600 dark:bg-gray-700 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
           )}
           title="网格"
         >
@@ -211,8 +200,8 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
         <button
           onClick={() => setShowAxes(!showAxes)}
           className={clsx(
-            "p-2 rounded hover:bg-gray-100",
-            showAxes ? "bg-blue-100 text-blue-600" : "text-gray-600"
+            "p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
+            showAxes ? "bg-blue-100 text-blue-600 dark:bg-gray-700 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
           )}
           title="坐标轴"
         >
@@ -222,8 +211,8 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
         <button
           onClick={toggleExamMode}
           className={clsx(
-            "p-2 rounded hover:bg-gray-100",
-            examMode ? "bg-blue-100 text-blue-600" : "text-gray-600"
+            "p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
+            examMode ? "bg-blue-100 text-blue-600 dark:bg-gray-700 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
           )}
           title="试卷风格"
         >
@@ -241,7 +230,6 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
           <button
             onClick={() => {
               setShowExportMenu(!showExportMenu);
-              setShowPngOptions(false);
               setSidebarCollapsed(true); // Collapse sidebar when opening download menu
             }}
             className="p-2 rounded hover:bg-gray-100 text-gray-600 flex items-center gap-1"
@@ -274,31 +262,13 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ stageRef }) => {
                 <FileOutput size={16} />
                 答题卡图（A4）
               </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowPngOptions(!showPngOptions)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 justify-between"
-                >
-                  <span className="flex items-center gap-2">
-                    <Image size={16} />
-                    导出为 PNG
-                  </span>
-                  <ChevronDown size={14} className={showPngOptions ? 'rotate-180' : ''} />
-                </button>
-                {showPngOptions && (
-                  <div className="border-t mt-1 pt-1">
-                    {pngPresets.map((preset, i) => (
-                      <button
-                        key={i}
-                        onClick={() => handleExportPng(preset.width)}
-                        className="w-full text-left px-6 py-1.5 text-sm hover:bg-gray-100"
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => handleExportPng(0)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+              >
+                <Image size={16} />
+                导出为 PNG
+              </button>
             </div>
           )}
         </div>

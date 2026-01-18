@@ -71,9 +71,16 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
 
   const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const clickedOnStage = e.target === e.target.getStage();
-    if (!clickedOnStage) return;
 
-    if (activeTool === 'select') {
+    // For point tool, allow clicking on conic section curves (parabola, hyperbola, ellipse)
+    // These elements don't have their own click handlers for point creation
+    const isPointTool = activeTool === 'point';
+    const isConicCurveClick = !clickedOnStage && isPointTool;
+
+    // If not clicking on stage and not a valid conic curve click for point tool, return
+    if (!clickedOnStage && !isConicCurveClick) return;
+
+    if (activeTool === 'select' && clickedOnStage) {
       setSelectedId(null);
     }
 
@@ -229,8 +236,8 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           id: targetPointId,
           type: 'point',
           name: 'P',
-          x: worldPos.x,
-          y: worldPos.y,
+          x: snapResult.x,  // Use snap position for curves/intersections
+          y: snapResult.y,
           visible: true,
           style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
@@ -279,8 +286,8 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           id: targetPointId,
           type: 'point',
           name: 'P',
-          x: worldPos.x,
-          y: worldPos.y,
+          x: snapResult.x,  // Use snap position for curves/intersections
+          y: snapResult.y,
           visible: true,
           style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
@@ -325,8 +332,8 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           id: targetPointId,
           type: 'point',
           name: 'P',
-          x: worldPos.x,
-          y: worldPos.y,
+          x: snapResult.x,  // Use snap position for curves/intersections
+          y: snapResult.y,
           visible: true,
           style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
@@ -449,8 +456,8 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           id: targetPointId,
           type: 'point',
           name: 'P',
-          x: worldPos.x,
-          y: worldPos.y,
+          x: snapResult.x,  // Use snap position for curves/intersections
+          y: snapResult.y,
           visible: true,
           style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
@@ -490,8 +497,8 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           id: targetPointId,
           type: 'point',
           name: 'P',
-          x: worldPos.x,
-          y: worldPos.y,
+          x: snapResult.x,  // Use snap position for curves/intersections
+          y: snapResult.y,
           visible: true,
           style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
@@ -719,8 +726,8 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           id: targetPointId,
           type: 'point',
           name: 'P',
-          x: worldPos.x,
-          y: worldPos.y,
+          x: snapResult.x,  // Use snap position for curves/intersections
+          y: snapResult.y,
           visible: true,
           style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],
@@ -842,8 +849,8 @@ export const CanvasStage = forwardRef<Konva.Stage>((props, ref) => {
           id: targetPointId,
           type: 'point',
           name: 'P',
-          x: worldPos.x,
-          y: worldPos.y,
+          x: snapResult.x,  // Use snap position for curves/intersections
+          y: snapResult.y,
           visible: true,
           style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
           dependencies: [],

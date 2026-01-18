@@ -474,6 +474,38 @@ export const Point: React.FC<PointProps> = ({ element }) => {
                 });
                 resetConstruction();
             }
+        } else if (activeTool === 'midpoint') {
+            // Midpoint tool: select two points to create midpoint between them
+            e.cancelBubble = true;
+            const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
+            const { addElement, getElementById } = useGeoStore.getState();
+
+            if (constructionStep === 0) {
+                addTempId(element.id);
+                setConstructionStep(1);
+            } else if (constructionStep === 1) {
+                const p1Id = tempIds[0];
+                const p2Id = element.id;
+                if (p1Id === p2Id) return;
+
+                const p1 = getElementById(p1Id) as PointElement | undefined;
+                const p2 = getElementById(p2Id) as PointElement | undefined;
+
+                if (p1 && p2) {
+                    addElement({
+                        id: generateId(),
+                        type: 'point',
+                        name: 'M',
+                        x: (p1.x + p2.x) / 2,
+                        y: (p1.y + p2.y) / 2,
+                        visible: true,
+                        style: { stroke: '#2563eb', strokeWidth: 1.5, fill: '#3b82f6' },
+                        dependencies: [p1Id, p2Id],
+                        definition: { type: 'midpoint', p1: p1Id, p2: p2Id }
+                    });
+                }
+                resetConstruction();
+            }
         } else if (activeTool === 'measure_length') {
             e.cancelBubble = true;
             const { constructionStep, addTempId, setConstructionStep, resetConstruction, tempIds } = useToolStore.getState();
@@ -1018,8 +1050,13 @@ export const Point: React.FC<PointProps> = ({ element }) => {
             <Circle radius={hitRadius} fill="transparent" />
             <Circle
                 radius={radius}
-                fill={examMode ? '#ffffff' : (element.style.fill || (isSelected ? '#fca5a5' : '#3b82f6'))}
-                stroke={element.style.stroke || (isSelected ? '#dc2626' : (isHovered ? '#f59e0b' : (examMode ? '#111827' : '#2563eb')))}
+                fill={examMode
+                    ? (darkTheme ? '#e5e7eb' : '#ffffff')  // Dark+exam: solid like line; Light+exam: hollow white
+                    : (element.style.fill || (isSelected ? '#fca5a5' : '#3b82f6'))}
+                stroke={element.style.stroke || (isSelected ? '#dc2626' : (isHovered ? '#f59e0b'
+                    : (examMode
+                        ? (darkTheme ? '#e5e7eb' : '#93c5fd')  // Dark+exam: same as line; Light+exam: light blue
+                        : '#2563eb')))}
                 strokeWidth={element.style.strokeWidth ? element.style.strokeWidth / scale : 1.5 / scale}
                 shadowColor={isSelected ? '#dc2626' : (isHovered ? '#f59e0b' : undefined)}
                 shadowBlur={isSelected ? 10 : (isHovered ? 8 : 0)}
